@@ -22,12 +22,19 @@ st.set_page_config(
 )
 
 DESIGN_TOKENS = {
-    'primary_color': '#1E88E5',
-    'primary_color_cn': '#C62828',
+    'primary_color': '#2E7D32',
+    'primary_color_cn': '#FFB300',
+    'primary_light': '#4CAF50',
+    'secondary': '#F57F17',
     'background': '#FAFAFA',
     'card_bg': '#FFFFFF',
-    'text_primary': '#212121',
-    'text_secondary': '#757575',
+    'surface_variant': '#F5F5F5',
+    'text_primary': '#1B1B1F',
+    'text_secondary': '#49454F',
+    'success': '#66BB6A',
+    'warning': '#FFA726',
+    'error': '#EF5350',
+    'info': '#29B6F6',
     'border_radius': '8px',
     'shadow': '0 2px 4px rgba(0,0,0,0.1)',
     'font_size_body': '16px',
@@ -35,12 +42,19 @@ DESIGN_TOKENS = {
 }
 
 DARK_TOKENS = {
-    'primary_color': '#42A5F5',
-    'primary_color_cn': '#EF5350',
-    'background': '#1A1A2E',
-    'card_bg': '#16213E',
-    'text_primary': '#E0E0E0',
-    'text_secondary': '#9E9E9E',
+    'primary_color': '#4CAF50',
+    'primary_color_cn': '#FFB300',
+    'primary_light': '#81C784',
+    'secondary': '#FFB300',
+    'background': '#121212',
+    'card_bg': '#1E1E1E',
+    'surface_variant': '#2C2C2C',
+    'text_primary': '#ECEFF1',
+    'text_secondary': '#B0BEC5',
+    'success': '#66BB6A',
+    'warning': '#FFA726',
+    'error': '#EF5350',
+    'info': '#29B6F6',
     'border_radius': '8px',
     'shadow': '0 2px 4px rgba(0,0,0,0.3)',
     'font_size_body': '16px',
@@ -95,32 +109,36 @@ def apply_custom_css(lang: str, theme: str = 'dark'):
                 transition: all 0.2s ease;
             }}
             .stButton > button:hover {{
-                filter: brightness(1.1);
+                background-color: {tokens['secondary']};
+                color: #121212;
             }}
             .stSelectbox, .stMultiSelect {{
                 border-radius: {tokens['border_radius']};
             }}
             [data-testid="stSidebar"] {{
-                background-color: {tokens['card_bg']};
+                background-color: {tokens['surface_variant']};
+            }}
+            .stTab {{
+                background-color: {tokens['surface_variant']};
             }}
             .stSuccess {{
                 background-color: #1B3A1B;
-                border-left: 4px solid #4CAF50;
+                border-left: 4px solid {tokens['success']};
                 color: #C8E6C9;
             }}
             .stInfo {{
                 background-color: #0D2744;
-                border-left: 4px solid {tokens['primary_color']};
-                color: #BBDEFB;
+                border-left: 4px solid {tokens['info']};
+                color: #B3E5FC;
             }}
             .stWarning {{
                 background-color: #3E2723;
-                border-left: 4px solid #FF9800;
+                border-left: 4px solid {tokens['warning']};
                 color: #FFE0B2;
             }}
             .stError {{
                 background-color: #3B1010;
-                border-left: 4px solid #F44336;
+                border-left: 4px solid {tokens['error']};
                 color: #FFCDD2;
             }}
             .card {{
@@ -204,29 +222,33 @@ def apply_custom_css(lang: str, theme: str = 'dark'):
                 transition: all 0.2s ease;
             }}
             .stButton > button:hover {{
-                filter: brightness(1.1);
+                background-color: {tokens['primary_light']};
+                color: white;
             }}
             .stSelectbox, .stMultiSelect {{
                 border-radius: {tokens['border_radius']};
             }}
             [data-testid="stSidebar"] {{
-                background-color: {tokens['card_bg']};
+                background-color: {tokens['surface_variant']};
+            }}
+            .stTab {{
+                background-color: {tokens['surface_variant']};
             }}
             .stSuccess {{
                 background-color: #E8F5E9;
-                border-left: 4px solid #4CAF50;
+                border-left: 4px solid {tokens['success']};
             }}
             .stInfo {{
-                background-color: #E3F2FD;
-                border-left: 4px solid {tokens['primary_color']};
+                background-color: #E1F5FE;
+                border-left: 4px solid {tokens['info']};
             }}
             .stWarning {{
                 background-color: #FFF3E0;
-                border-left: 4px solid #FF9800;
+                border-left: 4px solid {tokens['warning']};
             }}
             .stError {{
                 background-color: #FFEBEE;
-                border-left: 4px solid #F44336;
+                border-left: 4px solid {tokens['error']};
             }}
             .card {{
                 background-color: {tokens['card_bg']};
@@ -515,7 +537,7 @@ def show_home():
         heatmap_data,
         x=[t('overall_strength'), t('attack_power'), t('defense_strength'), t('pk_ability')],
         y=display_names,
-        color_continuous_scale='Viridis',
+        color_continuous_scale=['#1B5E20', '#4CAF50', '#81C784', '#FFB300', '#FFD54F'],
         aspect='auto',
         title=t('top_10_teams')
     )
@@ -612,7 +634,8 @@ def show_match_prediction():
         fig = go.Figure(data=[go.Pie(
             labels=[f"{home_display} Win", "Draw", f"{away_display} Win"],
             values=[result['home_win_probability'], result['draw_probability'], result['away_win_probability']],
-            hole=0.3
+            hole=0.3,
+            marker=dict(colors=['#4CAF50', '#FFB300', '#81C784'])
         )])
         fig.update_layout(title_text=t('probability_distribution'))
         st.plotly_chart(fig, width='stretch')
@@ -634,12 +657,16 @@ def show_match_prediction():
             r=[factors['player_factor']['home']],
             theta=categories,
             fill='toself',
+            fillcolor='rgba(76,175,80,0.3)',
+            line_color='#4CAF50',
             name=home_display
         ))
         fig_radar.add_trace(go.Scatterpolar(
             r=[factors['player_factor']['away']],
             theta=categories,
             fill='toself',
+            fillcolor='rgba(255,179,0,0.3)',
+            line_color='#FFB300',
             name=away_display
         ))
         fig_radar.update_layout(
@@ -722,12 +749,16 @@ def show_team_comparison():
             r=team1_values,
             theta=metric_names,
             fill='toself',
+            fillcolor='rgba(76,175,80,0.3)',
+            line_color='#4CAF50',
             name=team1_display
         ))
         fig_radar.add_trace(go.Scatterpolar(
             r=team2_values,
             theta=metric_names,
             fill='toself',
+            fillcolor='rgba(255,179,0,0.3)',
+            line_color='#FFB300',
             name=team2_display
         ))
         fig_radar.update_layout(
@@ -809,6 +840,8 @@ def show_player_database():
             r=[avg_pace, avg_shooting, avg_passing, avg_defending, avg_dribbling, avg_fitness],
             theta=categories,
             fill='toself',
+            fillcolor='rgba(76,175,80,0.3)',
+            line_color='#4CAF50',
             name=get_team_name(selected_team, lang)
         ))
         fig_radar.update_layout(
@@ -925,7 +958,7 @@ def show_model_analysis():
     fig_accuracy = px.line(accuracy_data, x='Iteration', y='Accuracy (%)',
                            markers=True, title=t('accuracy_trend'),
                            line_shape='linear')
-    fig_accuracy.update_traces(line=dict(width=3), marker=dict(size=10))
+    fig_accuracy.update_traces(line=dict(width=3, color='#4CAF50'), marker=dict(size=10, color='#4CAF50'))
     st.plotly_chart(fig_accuracy, width='stretch')
 
     col_n1, col_n2, col_n3, col_n4 = st.columns(4)
@@ -953,7 +986,8 @@ def show_model_analysis():
         'Weight': list(weights_data.values())
     })
 
-    fig = px.pie(weight_df, values='Weight', names='Factor', title=t('weight_distribution'))
+    fig = px.pie(weight_df, values='Weight', names='Factor', title=t('weight_distribution'),
+                 color_discrete_sequence=['#4CAF50', '#FFB300', '#81C784', '#F57F17', '#A5D6A7'])
     st.plotly_chart(fig, width='stretch')
 
     st.subheader(f"📊 {t('three_board_params')}")
@@ -1003,7 +1037,7 @@ def show_model_analysis():
             heatmap_values.T,
             x=team_names,
             y=[cat],
-            color_continuous_scale='Blues',
+            color_continuous_scale=['#1B5E20', '#4CAF50', '#81C784', '#FFB300', '#FFD54F'],
             aspect='auto',
             title=f"{t('top_5_teams')} - {cat}"
         )
@@ -1129,7 +1163,7 @@ def show_xfactor():
 
         fig = go.Figure()
 
-        for _, player in selected_df.iterrows():
+        for idx, (_, player) in enumerate(selected_df.iterrows()):
             values = [
                 player['rating'] / 100 * 5,
                 min(player['goals'] / 30 * 5, 5),
@@ -1139,10 +1173,22 @@ def show_xfactor():
             ]
             values.append(values[0])
 
+            if idx == 0:
+                fillcolor = 'rgba(76,175,80,0.3)'
+                line_color = '#4CAF50'
+            elif idx == 1:
+                fillcolor = 'rgba(255,179,0,0.3)'
+                line_color = '#FFB300'
+            else:
+                fillcolor = f'rgba(129,199,132,{0.3 - idx * 0.05})'
+                line_color = '#81C784'
+
             fig.add_trace(go.Scatterpolar(
                 r=values,
                 theta=categories + [categories[0]],
                 fill='toself',
+                fillcolor=fillcolor,
+                line_color=line_color,
                 name=player['display_name']
             ))
 
@@ -1203,6 +1249,8 @@ def show_team_squads():
         r=[avg_pace, avg_shooting, avg_passing, avg_defending, avg_dribbling, avg_fitness],
         theta=categories,
         fill='toself',
+        fillcolor='rgba(76,175,80,0.3)',
+        line_color='#4CAF50',
         name=get_team_name(selected_team, lang)
     ))
     fig_team.update_layout(
@@ -1232,6 +1280,8 @@ def show_team_squads():
                     r=[p['pace'], p['shooting'], p['passing'], p['defending'], p['dribbling_skill'], p['fitness_level']],
                     theta=categories,
                     fill='toself',
+                    fillcolor='rgba(76,175,80,0.3)',
+                    line_color='#4CAF50',
                     name=player_name
                 ))
                 fig_player.update_layout(
