@@ -17,6 +17,11 @@ DATA_PATH = SCRIPT_DIR / 'data' / 'wc2026_player_database.json'
 
 def _get_app_version():
     try:
+        from version_config import APP_VERSION as vc_version
+        return vc_version
+    except ImportError:
+        pass
+    try:
         if 'APP_VERSION' in st.secrets:
             return st.secrets['APP_VERSION']
     except Exception:

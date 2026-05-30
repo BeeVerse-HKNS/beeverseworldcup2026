@@ -1,47 +1,81 @@
-# World Cup 2026 Predictor
+# world-2026
 
-5-Factor Prediction Model for FIFA World Cup 2026.
+World 2026 Program - Global Initiative and Memory System
 
-## Features
+## 專案資訊
 
-- Tournament simulation with knockout brackets
-- 5-factor prediction formula (Elo, Market Value, X-Factor, Form, Squad Depth)
-- Multi-language support (EN/ZH/ES/AR/FR)
-- Interactive Streamlit dashboard
-- Dark/Light theme toggle
-- **Stadium Gold** color scheme - warm gray dark theme, green primary, gold accent
+- **創建日期**: 2026-05-17
+- **父專案**: [Harnessing](../..)
+- **狀態**: 🆕 新建
 
-## Local Development
+## 快速開始
+
+### 1. 克隆專案
 
 ```bash
-pip install -r requirements.txt
-streamlit run streamlit_app.py
+cd D:\My_Code_Projects\Harnessing\projects
+# 將模板複製到新專案目錄
+cp -r ../templates/project-template ./world-2026
 ```
 
-## Streamlit Cloud Deployment
+### 2. 替換佔位符
 
-This app is designed for deployment on Streamlit Cloud at https://beeverseworldcup2026.streamlit.app.
+將以下佔位符替換為實際值：
 
-### Deployment Steps (To Configure on Streamlit Cloud
+| 佔位符 | 說明 | 範例 |
+|--------|------|------|
+| `world-2026` | 專案名稱 | my-awesome-project |
+| `World 2026 Program - Global Initiative and Memory System` | 專案描述 | 一個很棒的專案 |
+| `2026-05-17` | 創建日期 | 2026-05-17 |
 
-1. Go to https://share.streamlit.io
-2. Click "New app"
-3. Fill in the details:
-   - **Repository**: `BeeVerse-HKNS/beeverseworldcup2026`
-   - **Branch**: `main`
-   - **Main file path**: `streamlit_app.py`
-4. Click "Deploy!"
+### 3. 初始化開發環境
 
-### Production URL
+```bash
+cd world-2026
+# 安裝依賴（如有）
+pip install -r requirements.txt
+```
 
-https://beeverseworldcup2026.streamlit.app
+## 專案結構
 
-### Configuration
+```
+world-2026/
+├── AGENTS.md              # 專案記憶導航圖
+├── tasks.md               # 任務追蹤
+├── README.md              # 專案說明（本文件）
+├── .trae/
+│   └── rules/
+│       └── project_rules.md  # 專案規則
+├── src/                   # 源代碼
+├── tests/                 # 測試
+└── docs/                  # 文檔
+```
 
-- **Repository**: https://github.com/BeeVerse-HKNS/beeverseworldcup2026
+## 使用說明
 
-### Theme
+### 開發流程
 
-The app uses a custom "Stadium Gold" color scheme:
-- Dark theme: `#121212` (bg), `#1E1E1E` (card), `#4CAF50` (primary green), `#FFB300` (accent gold)
-- Light theme: `#FAFAFA` (bg), `#FFFFFF` (card), `#2E7D32` (primary), `#F57F17` (accent)
+1. **閱讀 AGENTS.md** - 了解專案狀態同決策記錄
+2. **查看 tasks.md** - 確認當前任務
+3. **遵循 project_rules.md** - 遵守專案規則
+4. **更新進度** - 完成後更新 AGENTS.md 同 tasks.md
+
+### 與父專案關係
+
+本專案繼承 Harnessing 嘅：
+
+- **方法論**: Harness Engineering（前饋 + 反饋雙回路）
+- **規則**: [父專案規則](../../.trae/rules/project_rules.md)
+- **知識庫**: [docs/knowledge-base/](../../docs/knowledge-base/)
+- **共享工具**: [src/harnessing/](../../src/harnessing/)
+
+## 相關連結
+
+- [AGENTS.md](./AGENTS.md) - 專案記憶導航圖
+- [tasks.md](./tasks.md) - 任務追蹤
+- [.trae/rules/project_rules.md](./.trae/rules/project_rules.md) - 專案規則
+- [父專案](../../AGENTS.md) - Harnessing
+
+## 授權
+
+本專案為 Harnessing 嘅子專案，遵循相同授權條款。
