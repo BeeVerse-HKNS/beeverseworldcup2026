@@ -8,12 +8,14 @@ from pathlib import Path
 from datetime import datetime
 from formula_v9_ultimate import FormulaV9
 from tournament_model import TournamentModel
-from languages import LANGUAGES, LANGUAGE_NAMES, get_text, get_language_name
+from languages import LANGUAGES, LANGUAGE_NAMES, get_text, get_language_name, get_available_languages, get_default_language
 from player_translations import get_player_name, get_team_name
 from user_registration_db import save_registration, get_registration_count
 
 SCRIPT_DIR = Path(__file__).parent.resolve()
 DATA_PATH = SCRIPT_DIR / 'data' / 'wc2026_player_database.json'
+
+APP_VERSION = os.environ.get('APP_VERSION', 'international')
 
 st.set_page_config(
     page_title="World Cup 2026 Predictor",
@@ -281,7 +283,7 @@ def apply_custom_css(lang: str, theme: str = 'dark'):
 
 def init_language():
     if 'language' not in st.session_state:
-        st.session_state.language = 'zh_hant'
+        st.session_state.language = get_default_language(APP_VERSION)
     return st.session_state.language
 
 def set_language(lang: str):
@@ -335,15 +337,27 @@ def show_registration():
     with st.form("registration_form"):
         name = st.text_input(t('register_name'), placeholder=t('register_name_placeholder'))
         email = st.text_input(t('register_email'), placeholder=t('register_email_placeholder'))
-        phone = st.text_input(t('register_phone'), placeholder=t('register_phone_placeholder'))
+        if APP_VERSION == 'china':
+            phone = st.text_input(t('register_phone'), placeholder=t('register_phone_placeholder'), help='（可选）')
+        else:
+            phone = st.text_input(t('register_phone'), placeholder=t('register_phone_placeholder'))
 
         st.caption(f"🔒 {t('register_privacy')}")
+
+        if APP_VERSION == 'china':
+            pipl_consent = st.checkbox('我已阅读并同意《个人信息处理政策》', value=False)
+            if not pipl_consent:
+                st.caption('📋 [隐私政策](https://beeverseworldcup2026.streamlit.app/privacy)')
 
         submitted = st.form_submit_button(t('register_submit'), use_container_width=True)
 
         if submitted:
             if name and email:
-                save_registration(name, email, phone, lang)
+                if APP_VERSION == 'china' and not st.session_state.get('pipl_consent_checked', False):
+                    if not pipl_consent:
+                        st.error("请同意个人信息处理政策")
+                        return
+                save_registration(name, email, phone, lang, APP_VERSION)
                 st.session_state.registered = True
                 st.session_state.user_name = name
                 st.rerun()
@@ -352,9 +366,10 @@ def show_registration():
 
     with st.sidebar:
         st.markdown(f"### {t('language')}")
-        lang_options = list(LANGUAGE_NAMES.keys())
-        lang_labels = [LANGUAGE_NAMES[l] for l in lang_options]
-        current_idx = lang_options.index(lang)
+        available_langs = get_available_languages(APP_VERSION)
+        lang_options = list(available_langs.keys())
+        lang_labels = [available_langs[l] for l in lang_options]
+        current_idx = lang_options.index(lang) if lang in lang_options else 0
         selected_lang_label = st.selectbox(
             t('select_language'),
             lang_labels,
@@ -378,6 +393,18 @@ def main():
 
     apply_custom_css(lang, theme)
 
+    if APP_VERSION == 'international' and 'cookie_consent' not in st.session_state:
+        st.markdown("""
+        <div style="position:fixed;bottom:0;left:0;right:0;background:#1E1E1E;padding:12px 24px;
+        z-index:9999;display:flex;align-items:center;justify-content:space-between;border-top:1px solid #4CAF50;">
+            <span style="color:#ECEFF1;font-size:14px;">🍪 We use cookies to improve your experience. 
+            <a href="#" style="color:#4CAF50;">Learn more</a></span>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("Accept Cookies", key="cookie_accept"):
+            st.session_state.cookie_consent = True
+            st.rerun()
+
     with st.sidebar:
         st.markdown(f"### {t('theme_toggle')}")
         theme_options = [t('theme_dark'), t('theme_light')]
@@ -395,9 +422,10 @@ def main():
 
         st.markdown("---")
         st.markdown(f"### {t('language')}")
-        lang_options = list(LANGUAGE_NAMES.keys())
-        lang_labels = [LANGUAGE_NAMES[l] for l in lang_options]
-        current_idx = lang_options.index(lang)
+        available_langs = get_available_languages(APP_VERSION)
+        lang_options = list(available_langs.keys())
+        lang_labels = [available_langs[l] for l in lang_options]
+        current_idx = lang_options.index(lang) if lang in lang_options else 0
         selected_lang_label = st.selectbox(
             t('select_language'),
             lang_labels,
@@ -429,6 +457,25 @@ def main():
             t('team_squads_page')
         ]
         page = st.radio(t('navigation'), pages)
+
+        st.markdown("---")
+        st.markdown("### 📤 Share")
+        if APP_VERSION == 'china':
+            st.markdown("""
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <a href="https://service.weibo.com/share/share.php?url=https://beeverseworldcup2026.streamlit.app/&title=2026世界杯预测" target="_blank" style="text-decoration:none;padding:4px 12px;background:#E6162D;color:white;border-radius:4px;font-size:12px;">微博</a>
+                <a href="javascript:void(0)" onclick="copyToClipboard('https://beeverseworldcup2026.streamlit.app/')" style="text-decoration:none;padding:4px 12px;background:#07C160;color:white;border-radius:4px;font-size:12px;">微信</a>
+                <a href="https://www.douyin.com/" target="_blank" style="text-decoration:none;padding:4px 12px;background:#010101;color:white;border-radius:4px;font-size:12px;">抖音</a>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown("""
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <a href="https://twitter.com/intent/tweet?url=https://beeverseworldcup2026.streamlit.app/&text=2026%20World%20Cup%20Predictor" target="_blank" style="text-decoration:none;padding:4px 12px;background:#1DA1F2;color:white;border-radius:4px;font-size:12px;">Twitter/X</a>
+                <a href="https://www.facebook.com/sharer/sharer.php?u=https://beeverseworldcup2026.streamlit.app/" target="_blank" style="text-decoration:none;padding:4px 12px;background:#1877F2;color:white;border-radius:4px;font-size:12px;">Facebook</a>
+                <a href="https://wa.me/?text=2026%20World%20Cup%20Predictor%20https://beeverseworldcup2026.streamlit.app/" target="_blank" style="text-decoration:none;padding:4px 12px;background:#25D366;color:white;border-radius:4px;font-size:12px;">WhatsApp</a>
+            </div>
+            """, unsafe_allow_html=True)
 
     try:
         if page == t('home'):

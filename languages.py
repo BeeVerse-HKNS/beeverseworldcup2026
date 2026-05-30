@@ -525,3 +525,25 @@ def get_text(key: str, lang: str = 'en') -> str:
 
 def get_language_name(lang: str) -> str:
     return LANGUAGE_NAMES.get(lang, lang)
+
+VERSION_LANGUAGES = {
+    'china': {
+        'zh_hans': '简体中文',
+        'en': 'English'
+    },
+    'international': {
+        'en': 'English',
+        'zh_hant': '繁體中文'
+    }
+}
+
+VERSION_DEFAULT_LANG = {
+    'china': 'zh_hans',
+    'international': 'en'
+}
+
+def get_available_languages(version: str = 'international') -> dict:
+    return VERSION_LANGUAGES.get(version, VERSION_LANGUAGES['international'])
+
+def get_default_language(version: str = 'international') -> str:
+    return VERSION_DEFAULT_LANG.get(version, 'en')

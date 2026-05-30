@@ -13,16 +13,21 @@ def _get_conn():
         email TEXT NOT NULL,
         phone TEXT,
         language TEXT,
+        version TEXT,
         registered_at TEXT
     )''')
+    try:
+        conn.execute('ALTER TABLE registrations ADD COLUMN version TEXT')
+    except sqlite3.OperationalError:
+        pass
     conn.commit()
     return conn
 
-def save_registration(name: str, email: str, phone: str, language: str):
+def save_registration(name: str, email: str, phone: str, language: str, version: str = 'international'):
     conn = _get_conn()
     conn.execute(
-        'INSERT INTO registrations (name, email, phone, language, registered_at) VALUES (?, ?, ?, ?, ?)',
-        (name, email, phone, language, datetime.utcnow().isoformat())
+        'INSERT INTO registrations (name, email, phone, language, version, registered_at) VALUES (?, ?, ?, ?, ?, ?)',
+        (name, email, phone, language, version, datetime.utcnow().isoformat())
     )
     conn.commit()
     conn.close()
