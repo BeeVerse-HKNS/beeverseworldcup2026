@@ -15,7 +15,15 @@ from user_registration_db import save_registration, get_registration_count
 SCRIPT_DIR = Path(__file__).parent.resolve()
 DATA_PATH = SCRIPT_DIR / 'data' / 'wc2026_player_database.json'
 
-APP_VERSION = os.environ.get('APP_VERSION', 'international')
+def _get_app_version():
+    try:
+        if 'APP_VERSION' in st.secrets:
+            return st.secrets['APP_VERSION']
+    except Exception:
+        pass
+    return os.environ.get('APP_VERSION', 'international')
+
+APP_VERSION = _get_app_version()
 
 st.set_page_config(
     page_title="World Cup 2026 Predictor",
