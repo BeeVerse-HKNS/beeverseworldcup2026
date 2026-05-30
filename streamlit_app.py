@@ -12,6 +12,15 @@ from languages import LANGUAGES, LANGUAGE_NAMES, get_text, get_language_name, ge
 from player_translations import get_player_name, get_team_name
 from user_registration_db import save_registration, get_registration_count
 
+try:
+    from compliance_language_map import compliant_text, check_compliance
+    from jurisdiction_detector import JurisdictionDetector
+    from disclaimer_engine import DisclaimerEngine
+    from revenue_models import RevenueManager
+    _COMPLIANCE_AVAILABLE = True
+except ImportError:
+    _COMPLIANCE_AVAILABLE = False
+
 SCRIPT_DIR = Path(__file__).parent.resolve()
 DATA_PATH = SCRIPT_DIR / 'data' / 'wc2026_player_database.json'
 
@@ -29,6 +38,15 @@ def _get_app_version():
     return os.environ.get('APP_VERSION', 'international')
 
 APP_VERSION = _get_app_version()
+
+if _COMPLIANCE_AVAILABLE:
+    jurisdiction_detector = JurisdictionDetector()
+    disclaimer_engine = DisclaimerEngine()
+    revenue_manager = RevenueManager()
+else:
+    jurisdiction_detector = None
+    disclaimer_engine = None
+    revenue_manager = None
 
 COUNTRY_CODES = [
     ('+1', '🇺🇸 USA/Canada'),
@@ -124,12 +142,32 @@ def premium_badge():
     return st.markdown('<span style="background:linear-gradient(135deg,#FFD700,#FFA000);color:#000;padding:2px 8px;border-radius:4px;font-size:0.75em;font-weight:bold;">⭐ PREMIUM</span>', unsafe_allow_html=True)
 
 def premium_gate(feature_name: str):
-    st.markdown(f"""
-    <div style="border:2px dashed #FFB300;border-radius:8px;padding:1.5rem;text-align:center;background:rgba(255,179,0,0.05);">
-        <p style="font-size:1.2rem;margin:0;">⭐ {feature_name}</p>
-        <p style="color:#FFB300;margin:0.5rem 0 0 0;">{'升級至 Premium 解鎖' if APP_VERSION == 'china' else 'Upgrade to Premium to unlock'}</p>
-    </div>
-    """, unsafe_allow_html=True)
+    is_cn = APP_VERSION == 'china'
+    if revenue_manager:
+        jurisdiction = st.session_state.get('user_jurisdiction', 'other')
+        tiers = revenue_manager.get_pricing_tiers(jurisdiction)
+        st.markdown(f"""
+        <div style="border:2px dashed #FFB300;border-radius:8px;padding:1.5rem;text-align:center;background:rgba(255,179,0,0.05);">
+            <p style="font-size:1.2rem;margin:0;">⭐ {feature_name}</p>
+            <p style="color:#FFB300;margin:0.5rem 0 0 0;">{'升級至 Premium 解鎖' if is_cn else 'Upgrade to unlock'}</p>
+        </div>
+        """, unsafe_allow_html=True)
+        tier_cols = st.columns(len(tiers))
+        for col, tier in zip(tier_cols, tiers):
+            with col:
+                st.markdown(f"**{tier['name']}** — {tier['price']}")
+                if tier.get('stripe_link'):
+                    st.link_button(
+                        '🛒 ' + ('訂閱' if is_cn else 'Subscribe'),
+                        tier['stripe_link'],
+                    )
+    else:
+        st.markdown(f"""
+        <div style="border:2px dashed #FFB300;border-radius:8px;padding:1.5rem;text-align:center;background:rgba(255,179,0,0.05);">
+            <p style="font-size:1.2rem;margin:0;">⭐ {feature_name}</p>
+            <p style="color:#FFB300;margin:0.5rem 0 0 0;">{'升級至 Premium 解鎖' if is_cn else 'Upgrade to Premium to unlock'}</p>
+        </div>
+        """, unsafe_allow_html=True)
 
 def apply_custom_css(lang: str, theme: str = 'dark'):
     tokens = get_design_tokens(lang, theme)
@@ -380,35 +418,148 @@ tournament = load_tournament()
 def t(key: str) -> str:
     return get_text(key, st.session_state.language)
 
+def show_disclaimers():
+    if not disclaimer_engine:
+        return
+    jurisdiction = st.session_state.get('user_jurisdiction', 'other')
+    disclaimers = disclaimer_engine.get_all_disclaimers(jurisdiction, APP_VERSION)
+    for d in disclaimers:
+        label_map = {
+            'prediction': '⚠️ Prediction Disclaimer',
+            'anti_gambling': '🚫 Anti-Gambling Notice',
+            'data_privacy': '🔒 Data Privacy',
+            'ai_transparency': '🤖 AI Transparency',
+        }
+        label = label_map.get(d['type'], d['type'].replace('_', ' ').title())
+        with st.sidebar.expander(label):
+            st.caption(d['text'])
+
 def show_affiliate_section():
     tokens = get_design_tokens(st.session_state.language, init_theme())
+    is_cn = APP_VERSION == 'china'
 
-    if APP_VERSION == 'china':
-        products = [
-            ("⚽ 世界盃正版球衣", "https://s.click.taobao.com/wc2026_jersey", "官方授權球衣，支持你嘅球隊"),
-            ("🎫 世界盃門票", "https://s.click.taobao.com/wc2026_tickets", "2026 美加墨世界盃現場門票"),
-            ("✈️ 世界盃旅行套餐", "https://s.click.taobao.com/wc2026_travel", "機票+酒店+門票一站式服務"),
-            ("🏆 世界盃紀念品", "https://s.click.taobao.com/wc2026_merch", "官方授權紀念品收藏"),
-        ]
+    if revenue_manager:
+        jurisdiction = st.session_state.get('user_jurisdiction', 'other')
+        products = revenue_manager.get_compliant_affiliate_products(jurisdiction)
     else:
-        products = [
-            ("⚽ Official WC Jersey", "https://www.fifa.com/fifaplus/en/tournaments/mens/worldcup/canadamexicousa2026/shop/jerseys", "Official licensed jerseys"),
-            ("🎫 Match Tickets", "https://www.fifa.com/fifaplus/en/tournaments/mens/worldcup/canadamexicousa2026/tickets", "FIFA World Cup 2026 tickets"),
-            ("✈️ Travel Packages", "https://www.booking.com/searchresults.html?ss=world+cup+2026", "Flight + Hotel + Ticket bundles"),
-            ("🏆 Collectibles", "https://www.fifa.com/fifaplus/en/tournaments/mens/worldcup/canadamexicousa2026/shop", "Official licensed merchandise"),
-        ]
+        if is_cn:
+            products = [
+                {"name": "⚽ 世界盃正版球衣", "url": "https://s.click.taobao.com/wc2026_jersey", "description": "官方授權球衣，支持你嘅球隊"},
+                {"name": "🎫 世界盃門票", "url": "https://s.click.taobao.com/wc2026_tickets", "description": "2026 美加墨世界盃現場門票"},
+                {"name": "✈️ 世界盃旅行套餐", "url": "https://s.click.taobao.com/wc2026_travel", "description": "機票+酒店+門票一站式服務"},
+            ]
+        else:
+            products = [
+                {"name": "⚽ Official WC Jersey", "url": "https://www.fifa.com/fifaplus/en/tournaments/mens/worldcup/canadamexicousa2026/shop/jerseys", "description": "Official licensed jerseys"},
+                {"name": "🎫 Match Tickets", "url": "https://www.fifa.com/fifaplus/en/tournaments/mens/worldcup/canadamexicousa2026/tickets", "description": "FIFA World Cup 2026 tickets"},
+                {"name": "✈️ Travel Packages", "url": "https://www.booking.com/searchresults.html?ss=world+cup+2026", "description": "Flight + Hotel + Ticket bundles"},
+            ]
 
-    st.markdown(f"### 🛒 {'世界盃周邊推薦' if APP_VERSION == 'china' else 'World Cup Shop'}")
+    st.markdown(f"### 🛒 {'世界盃周邊推薦' if is_cn else 'World Cup Shop'}")
     cols = st.columns(len(products))
-    for col, (name, url, desc) in zip(cols, products):
+    for col, product in zip(cols, products):
         with col:
+            name = product.get('name', '')
+            url = product.get('url', '')
+            desc = product.get('description', '')
             st.markdown(f"""
             <div style="background:{tokens['card_bg']};border-radius:8px;padding:1rem;text-align:center;border:1px solid {tokens.get('surface_variant', '#333')};">
                 <h4>{name}</h4>
                 <p style="font-size:0.85rem;color:{tokens['text_secondary']};">{desc}</p>
-                <a href="{url}" target="_blank" style="background:{tokens['primary_color']};color:white;padding:8px 16px;border-radius:4px;text-decoration:none;display:inline-block;">{'查看詳情' if APP_VERSION == 'china' else 'Shop Now'}</a>
+                <a href="{url}" target="_blank" style="background:{tokens['primary_color']};color:white;padding:8px 16px;border-radius:4px;text-decoration:none;display:inline-block;">{'查看詳情' if is_cn else 'Shop Now'}</a>
             </div>
             """, unsafe_allow_html=True)
+
+def show_business_solutions():
+    lang = init_language()
+    theme = init_theme()
+    apply_custom_css(lang, theme)
+    tokens = get_design_tokens(lang, theme)
+    jurisdiction = st.session_state.get('user_jurisdiction', 'other')
+
+    is_cn = APP_VERSION == 'china'
+
+    st.markdown(f"""
+    <div style="text-align: center; padding: 2rem;">
+        <h1>💼 {'商業方案' if is_cn else 'Business Solutions'}</h1>
+        <p style="color:{tokens['text_secondary']};">{'為你嘅業務提供專業解決方案' if is_cn else 'Professional solutions for your business'}</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    if not revenue_manager:
+        st.warning('⚠️ Revenue module not available' if not is_cn else '⚠️ 收入模組不可用')
+        return
+
+    tiers = revenue_manager.get_pricing_tiers(jurisdiction)
+
+    st.subheader('💰 ' + ('定價方案' if is_cn else 'Pricing Plans'))
+    tier_cols = st.columns(len(tiers))
+    for col, tier in zip(tier_cols, tiers):
+        with col:
+            is_popular = tier['id'] == 'pro'
+            border = f"2px solid {tokens['primary_color']}" if is_popular else f"1px solid {tokens.get('surface_variant', '#333')}"
+            badge = '<span style="background:#FFB300;color:#000;padding:2px 8px;border-radius:4px;font-size:0.7em;font-weight:bold;">POPULAR</span>' if is_popular else ''
+            st.markdown(f"""
+            <div style="background:{tokens['card_bg']};border-radius:8px;padding:1.5rem;text-align:center;border:{border};">
+                {badge}
+                <h3>{tier['name']}</h3>
+                <p style="font-size:1.5rem;font-weight:bold;color:{tokens['primary_color']};">{tier['price']}</p>
+                <p style="font-size:0.8rem;color:{tokens['text_secondary']};">{tier['period']}</p>
+            </div>
+            """, unsafe_allow_html=True)
+            for feature in tier['features']:
+                st.markdown(f"- {feature}")
+            if tier.get('stripe_link'):
+                st.link_button(
+                    '🛒 ' + ('訂閱' if is_cn else 'Subscribe'),
+                    tier['stripe_link'],
+                    use_container_width=True,
+                )
+
+    st.divider()
+
+    st.subheader('📊 ' + ('功能比較' if is_cn else 'Feature Comparison'))
+    comparison = revenue_manager.get_feature_comparison()
+    comp_df = pd.DataFrame(comparison)
+    st.dataframe(comp_df, use_container_width=True, hide_index=True)
+
+    st.divider()
+
+    st.subheader('🛒 ' + ('推薦產品' if is_cn else 'Recommended Products'))
+    products = revenue_manager.get_compliant_affiliate_products(jurisdiction)
+    prod_cols = st.columns(len(products))
+    for col, product in zip(prod_cols, products):
+        with col:
+            st.markdown(f"""
+            <div style="background:{tokens['card_bg']};border-radius:8px;padding:1rem;text-align:center;border:1px solid {tokens.get('surface_variant', '#333')};">
+                <h4>{product['name']}</h4>
+                <p style="font-size:0.85rem;color:{tokens['text_secondary']};">{product['description']}</p>
+            </div>
+            """, unsafe_allow_html=True)
+            st.link_button(
+                '🛍️ ' + ('查看' if is_cn else 'Shop Now'),
+                product['url'],
+                use_container_width=True,
+            )
+
+    st.divider()
+
+    st.subheader('🏢 ' + ('企業合作' if is_cn else 'B2B Contact'))
+    with st.form("b2b_contact"):
+        company_name = st.text_input('🏢 ' + ('公司名稱' if is_cn else 'Company Name'))
+        contact_email = st.text_input('📧 ' + ('聯絡電郵' if is_cn else 'Contact Email'))
+        use_case = st.text_area('📝 ' + ('使用場景' if is_cn else 'Use Case'))
+        if st.form_submit_button('📤 ' + ('提交' if is_cn else 'Submit'), use_container_width=True):
+            if company_name and contact_email:
+                st.success('✅ ' + ('已收到你嘅查詢，我哋會盡快聯絡你。' if is_cn else 'Thank you! We will contact you shortly.'))
+            else:
+                st.error('❌ ' + ('請填寫公司名稱和電郵' if is_cn else 'Please fill in company name and email'))
+
+    st.divider()
+
+    api_url = revenue_manager.get_api_docs_url()
+    st.subheader('🔧 API ' + ('文檔' if is_cn else 'Documentation'))
+    st.markdown(f"📖 [{'API 文檔' if is_cn else 'API Documentation'}]({api_url})")
 
 def show_monetization_guide():
     lang = init_language()
@@ -421,14 +572,14 @@ def show_monetization_guide():
             "💰 Freemium 變現策略": [
                 "**基本策略**：免費提供基本預測（勝/平/負概率），付費解鎖高級分析",
                 "**定價建議**：月費 ¥29-49，年費 ¥199-299",
-                "**Premium 內容**：詳細因素拆解、歷史對比、賠率分析、實時推送",
+                "**Premium 內容**：詳細因素拆解、歷史對比、統計概率分析、實時推送",
                 "**轉化關鍵**：讓免費用戶體驗到價值，再引導付費",
             ],
             "🛒 Affiliate Marketing 收入": [
                 "**球衣/周邊**：淘寶聯盟、京東聯盟，佣金 3-10%",
                 "**門票**：官方授權渠道，佣金 5-15%",
                 "**旅行套餐**：攜程/飛豬聯盟，佣金 3-8%",
-                "**關鍵**：選擇非賭博類產品，避免法律風險",
+                "**關鍵**：選擇合規數據分析產品，避免法律風險",
             ],
             "📱 社交媒體引流": [
                 "**抖音**：世界盃預測短視頻 → 引流到 App → 轉化為註冊用戶",
@@ -448,14 +599,14 @@ def show_monetization_guide():
             "💰 Freemium Strategy": [
                 "**Basic**: Free predictions (Win/Draw/Lose probability)",
                 "**Pricing**: Monthly $4.99-9.99, Annual $39.99-59.99",
-                "**Premium Content**: Detailed factor breakdown, historical comparison, odds analysis, real-time alerts",
+                "**Premium Content**: Detailed factor breakdown, historical comparison, statistical probability analysis, real-time alerts",
                 "**Conversion Key**: Let free users experience value first, then guide to paid",
             ],
             "🛒 Affiliate Marketing Revenue": [
                 "**Jerseys/Merch**: Amazon Associates, FIFA Shop, 3-8% commission",
                 "**Tickets**: Official FIFA channels, 5-15% commission",
                 "**Travel**: Booking.com, Expedia affiliates, 3-8% commission",
-                "**Key**: Choose non-gambling products to avoid legal risks",
+                "**Key**: Choose compliant data analysis products to avoid legal risks",
             ],
             "📱 Social Media Traffic": [
                 "**TikTok/IG Reels**: WC prediction shorts → Drive to App → Convert to registered users",
@@ -513,6 +664,9 @@ def show_registration():
                 index=default_code_idx,
                 label_visibility='collapsed'
             )
+            if jurisdiction_detector:
+                user_jurisdiction = jurisdiction_detector.detect_from_phone(country_code)
+                st.session_state.user_jurisdiction = user_jurisdiction
         with phone_col2:
             if APP_VERSION == 'china':
                 phone_number = st.text_input(t('register_phone'), placeholder=t('register_phone_placeholder'), help='（可选）')
@@ -641,6 +795,9 @@ def main():
     if 'is_premium' not in st.session_state:
         st.session_state.is_premium = False
 
+    if 'user_jurisdiction' not in st.session_state:
+        st.session_state.user_jurisdiction = 'other'
+
     if not st.session_state.registered:
         show_registration()
         return
@@ -709,7 +866,8 @@ def main():
             t('news_page'),
             t('xfactor_page'),
             t('team_squads_page'),
-            '📚 ' + ('變現指南' if APP_VERSION == 'china' else 'Monetization Guide')
+            '📚 ' + ('變現指南' if APP_VERSION == 'china' else 'Monetization Guide'),
+            '💼 ' + ('商業方案' if APP_VERSION == 'china' else 'Business Solutions')
         ]
         page = st.radio(t('navigation'), pages)
 
@@ -736,6 +894,19 @@ def main():
         show_affiliate_section()
 
         st.divider()
+        show_disclaimers()
+
+        if disclaimer_engine:
+            jurisdiction = st.session_state.get('user_jurisdiction', 'other')
+            anti_gambling = disclaimer_engine.get_anti_gambling_notice(jurisdiction)
+            if anti_gambling:
+                st.sidebar.markdown(f"""
+                <div style="background:#3B1010;border:1px solid #EF5350;border-radius:8px;padding:0.75rem;margin-top:0.5rem;">
+                    <p style="color:#FFCDD2;font-size:0.8rem;margin:0;">🚫 {anti_gambling}</p>
+                </div>
+                """, unsafe_allow_html=True)
+
+        st.divider()
         if st.button("🔒", key="admin_lock"):
             st.session_state.show_admin = not st.session_state.get('show_admin', False)
 
@@ -760,6 +931,8 @@ def main():
             show_team_squads()
         elif page == '📚 ' + ('變現指南' if APP_VERSION == 'china' else 'Monetization Guide'):
             show_monetization_guide()
+        elif page == '💼 ' + ('商業方案' if APP_VERSION == 'china' else 'Business Solutions'):
+            show_business_solutions()
     except Exception as e:
         st.error(f"❌ {t('page_error')}: {str(e)}")
         st.info(t('try_refresh'))
@@ -927,6 +1100,12 @@ def show_match_prediction():
 
         st.success(f"**{t('predicted_result')}:** {result['predicted_result']}")
         st.info(f"**{t('confidence_level')}:** {result['confidence']}%")
+
+        if disclaimer_engine:
+            jurisdiction = st.session_state.get('user_jurisdiction', 'other')
+            pred_disclaimer = disclaimer_engine.get_prediction_disclaimer(jurisdiction)
+            if pred_disclaimer:
+                st.warning(f"⚠️ {pred_disclaimer}")
 
         st.metric(t('model_confidence'), "90.4%")
         st.caption(t('based_on_iterations').format(735))

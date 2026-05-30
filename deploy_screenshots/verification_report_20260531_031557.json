@@ -1,0 +1,43 @@
+[
+  {
+    "app_name": "China Version",
+    "url": "https://beeverseworldcup2026.streamlit.app/",
+    "timestamp": "20260531_031116",
+    "app_loaded": true,
+    "screenshot_landing_saved": true,
+    "screenshot_form_saved": true,
+    "registration_form_visible": true,
+    "country_code_dropdown_visible": true,
+    "default_country_code": "+86",
+    "expected_default_code": "+86",
+    "default_code_correct": true,
+    "language_indicators_found": [
+      "注册",
+      "姓名"
+    ],
+    "iframe_text_length": 119,
+    "page_title": "World Cup 2026 Predictor · Streamlit",
+    "error": null
+  },
+  {
+    "app_name": "International Version",
+    "url": "https://beeverse-wc2026-international.streamlit.app/",
+    "timestamp": "20260531_031337",
+    "app_loaded": true,
+    "screenshot_landing_saved": true,
+    "screenshot_form_saved": true,
+    "registration_form_visible": true,
+    "country_code_dropdown_visible": true,
+    "default_country_code": "+1",
+    "expected_default_code": "+1",
+    "default_code_correct": true,
+    "language_indicators_found": [
+      "Phone",
+      "Name",
+      "Email"
+    ],
+    "iframe_text_length": 224,
+    "page_title": "World Cup 2026 Predictor · Streamlit",
+    "error": null
+  }
+]

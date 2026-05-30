@@ -3,6 +3,7 @@ import math
 import random
 from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass
+from odds_data_layer import OddsDataLayer
 
 @dataclass
 class Player:
@@ -63,10 +64,12 @@ class FormulaV9:
         self.players = self._load_player_data(player_data_path)
         self.teams = self._build_team_database()
         self.three_board = ThreeBoardModel()
+        self.odds_layer = OddsDataLayer()
+        self.alpha = 0.3
         self.factor_weights = {
-            'xg_weight': 0.25,
-            'v7_weight': 0.20,
-            'odds_weight': 0.20,
+            'xg_weight': 0.22,
+            'v7_weight': 0.18,
+            'market_consensus_weight': 0.15,
             'player_weight': 0.15,
             'defensive_pk_weight': 0.10,
             'substitution_weight': 0.05,
@@ -198,6 +201,23 @@ class FormulaV9:
         
         return (max_dribble + max_pace + max_shooting) / 3 * self.three_board.factors['xfactor_multiplier']
     
+    def _calculate_market_consensus_factor(self, team_home_name: str, team_away_name: str) -> dict:
+        try:
+            home_prob, draw_prob, away_prob = self.odds_layer.get_enhanced_probability(
+                team_home_name, team_away_name,
+                model_prob=(0.33, 0.33, 0.33),
+                alpha=self.alpha
+            )
+            return {'home': home_prob, 'draw': draw_prob, 'away': away_prob}
+        except Exception:
+            return {'home': 0.333, 'draw': 0.334, 'away': 0.333}
+    
+    def update_alpha(self, model_accuracy: float, market_accuracy: float):
+        if market_accuracy > model_accuracy:
+            self.alpha = min(0.5, self.alpha + 0.05)
+        elif model_accuracy > market_accuracy:
+            self.alpha = max(0.1, self.alpha - 0.05)
+    
     def predict_match(self, home_team_name: str, away_team_name: str, 
                      home_odds: float = 2.0, draw_odds: float = 3.2, away_odds: float = 3.5) -> Dict:
         home_team = self.teams.get(home_team_name)
@@ -228,15 +248,20 @@ class FormulaV9:
         xfactor_home = self.calculate_xfactor(home_team)
         xfactor_away = self.calculate_xfactor(away_team)
         
+        market_consensus = self._calculate_market_consensus_factor(home_team_name, away_team_name)
+        mc_home = market_consensus['home']
+        mc_away = market_consensus['away']
+        
         weighted_xg = (xg_home - xg_away) * self.factor_weights['xg_weight']
         weighted_v7 = (v7_base - 0.5) * self.factor_weights['v7_weight'] * 2
-        weighted_odds = (home_prob - 0.5) * self.factor_weights['odds_weight'] * 2
+        weighted_odds = (home_prob - 0.5) * self.factor_weights['market_consensus_weight'] * 2
+        weighted_market = (mc_home - mc_away) * self.factor_weights['market_consensus_weight'] * 2
         weighted_player = (player_home - player_away) * self.factor_weights['player_weight'] * 2
         weighted_defensive_pk = (defensive_pk_home - defensive_pk_away) * self.factor_weights['defensive_pk_weight'] * 2
         weighted_substitution = (substitution_home - substitution_away) * self.factor_weights['substitution_weight'] * 2
         weighted_xfactor = (xfactor_home - xfactor_away) * self.factor_weights['xfactor_weight'] * 2
         
-        total_score = (weighted_xg + weighted_v7 + weighted_odds + 
+        total_score = (weighted_xg + weighted_v7 + weighted_market + 
                       weighted_player + weighted_defensive_pk + 
                       weighted_substitution + weighted_xfactor)
         
@@ -268,6 +293,7 @@ class FormulaV9:
                 'xg': {'home': round(xg_home, 4), 'away': round(xg_away, 4)},
                 'v7_base': round(v7_base, 4),
                 'odds_composite': {'home': round(home_prob, 4), 'draw': round(draw_prob, 4), 'away': round(away_prob, 4)},
+                'market_consensus': {'home': round(mc_home, 4), 'draw': round(market_consensus['draw'], 4), 'away': round(mc_away, 4)},
                 'player_factor': {'home': round(player_home, 4), 'away': round(player_away, 4)},
                 'defensive_pk': {'home': round(defensive_pk_home, 4), 'away': round(defensive_pk_away, 4)},
                 'substitution': {'home': round(substitution_home, 4), 'away': round(substitution_away, 4)},
@@ -335,14 +361,14 @@ class FormulaV9:
         odds_away = prediction['factors']['odds_composite']['away']
         odds_diff = (odds_home - 0.5) * 2
         factors_detail['odds'] = {
-            'name': 'Odds Composite (市場預期)',
+            'name': 'Market Consensus Probability (市場預期概率)',
             'home_value': odds_home,
             'away_value': odds_away,
             'diff': round(odds_diff, 4),
             'contribution': 0.0,
-            'explanation': f"賠率轉換：主勝 {home_odds:.2f} → {odds_home:.2%}，客勝 {away_odds:.2f} → {odds_away:.2%}，市場{'看好主隊' if odds_diff > 0 else '看好客隊' if odds_diff < 0 else '認為勢均力敵'}",
+            'explanation': f"統計概率轉換：主勝 {home_odds:.2f} → {odds_home:.2%}，客勝 {away_odds:.2f} → {odds_away:.2%}，市場{'看好主隊' if odds_diff > 0 else '看好客隊' if odds_diff < 0 else '認為勢均力敵'}",
             'calculation': f"1 / {home_odds:.2f} = {odds_home:.4f}（歸一化後），diff = ({odds_home:.4f} - 0.5) × 2 = {odds_diff:.4f}",
-            'weight': self.factor_weights['odds_weight']
+            'weight': self.factor_weights['market_consensus_weight']
         }
         
         player_home = prediction['factors']['player_factor']['home']
@@ -406,7 +432,7 @@ class FormulaV9:
         weighted_values = {
             'xg': abs(xg_diff * self.factor_weights['xg_weight']),
             'v7_base': abs(v7_diff * self.factor_weights['v7_weight']),
-            'odds': abs(odds_diff * self.factor_weights['odds_weight']),
+            'odds': abs(odds_diff * self.factor_weights['market_consensus_weight']),
             'player': abs(player_diff * self.factor_weights['player_weight']),
             'defensive_pk': abs(def_pk_diff * self.factor_weights['defensive_pk_weight']),
             'substitution': abs(sub_diff * self.factor_weights['substitution_weight']),
