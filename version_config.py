@@ -1,1 +1,1 @@
-APP_VERSION = "china"
+APP_VERSION = "international"
