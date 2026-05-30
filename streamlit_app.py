@@ -36,6 +36,8 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+st.markdown(f'<div style="position:fixed;bottom:5px;right:5px;font-size:10px;color:#666;z-index:9999;">v:{APP_VERSION}</div>', unsafe_allow_html=True)
+
 DESIGN_TOKENS = {
     'primary_color': '#2E7D32',
     'primary_color_cn': '#FFB300',
