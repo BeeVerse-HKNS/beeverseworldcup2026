@@ -37,3 +37,19 @@ def get_registration_count() -> int:
     count = conn.execute('SELECT COUNT(*) FROM registrations').fetchone()[0]
     conn.close()
     return count
+
+def get_all_registrations():
+    conn = _get_conn()
+    rows = conn.execute('SELECT id, name, email, phone, language, version, registered_at FROM registrations ORDER BY registered_at DESC').fetchall()
+    conn.close()
+    return rows
+
+def get_registration_stats():
+    conn = _get_conn()
+    total = conn.execute('SELECT COUNT(*) FROM registrations').fetchone()[0]
+    china_count = conn.execute("SELECT COUNT(*) FROM registrations WHERE version = 'china'").fetchone()[0]
+    intl_count = conn.execute("SELECT COUNT(*) FROM registrations WHERE version = 'international'").fetchone()[0]
+    today = datetime.utcnow().strftime('%Y-%m-%d')
+    today_count = conn.execute("SELECT COUNT(*) FROM registrations WHERE registered_at LIKE ?", (f'{today}%',)).fetchone()[0]
+    conn.close()
+    return {'total': total, 'china': china_count, 'international': intl_count, 'today': today_count}

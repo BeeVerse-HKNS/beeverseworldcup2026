@@ -30,13 +30,49 @@ def _get_app_version():
 
 APP_VERSION = _get_app_version()
 
+COUNTRY_CODES = [
+    ('+1', '🇺🇸 USA/Canada'),
+    ('+44', '🇬🇧 UK'),
+    ('+852', '🇭🇰 Hong Kong'),
+    ('+86', '🇨🇳 中国'),
+    ('+886', '🇹🇼 台灣'),
+    ('+81', '🇯🇵 Japan'),
+    ('+82', '🇰🇷 South Korea'),
+    ('+65', '🇸🇬 Singapore'),
+    ('+60', '🇲🇾 Malaysia'),
+    ('+61', '🇦🇺 Australia'),
+    ('+49', '🇩🇪 Germany'),
+    ('+33', '🇫🇷 France'),
+    ('+34', '🇪🇸 Spain'),
+    ('+39', '🇮🇹 Italy'),
+    ('+31', '🇳🇱 Netherlands'),
+    ('+46', '🇸🇪 Sweden'),
+    ('+47', '🇳🇴 Norway'),
+    ('+351', '🇵🇹 Portugal'),
+    ('+55', '🇧🇷 Brazil'),
+    ('+52', '🇲🇽 Mexico'),
+    ('+54', '🇦🇷 Argentina'),
+    ('+56', '🇨🇱 Chile'),
+    ('+57', '🇨🇴 Colombia'),
+    ('+91', '🇮🇳 India'),
+    ('+92', '🇵🇰 Pakistan'),
+    ('+62', '🇮🇩 Indonesia'),
+    ('+66', '🇹🇭 Thailand'),
+    ('+84', '🇻🇳 Vietnam'),
+    ('+63', '🇵🇭 Philippines'),
+    ('+234', '🇳🇬 Nigeria'),
+    ('+27', '🇿🇦 South Africa'),
+    ('+971', '🇦🇪 UAE'),
+    ('+966', '🇸🇦 Saudi Arabia'),
+    ('+965', '🇰🇼 Kuwait'),
+    ('+20', '🇪🇬 Egypt'),
+]
+
 st.set_page_config(
     page_title="World Cup 2026 Predictor",
     layout="wide",
     initial_sidebar_state="expanded"
 )
-
-st.markdown(f'**Version:** `{APP_VERSION}`', unsafe_allow_html=False)
 
 DESIGN_TOKENS = {
     'primary_color': '#2E7D32',
@@ -83,6 +119,17 @@ def get_design_tokens(lang: str, theme: str = 'dark') -> dict:
     if lang in ['zh_hant', 'zh_hans']:
         tokens['primary_color'] = tokens['primary_color_cn']
     return tokens
+
+def premium_badge():
+    return st.markdown('<span style="background:linear-gradient(135deg,#FFD700,#FFA000);color:#000;padding:2px 8px;border-radius:4px;font-size:0.75em;font-weight:bold;">⭐ PREMIUM</span>', unsafe_allow_html=True)
+
+def premium_gate(feature_name: str):
+    st.markdown(f"""
+    <div style="border:2px dashed #FFB300;border-radius:8px;padding:1.5rem;text-align:center;background:rgba(255,179,0,0.05);">
+        <p style="font-size:1.2rem;margin:0;">⭐ {feature_name}</p>
+        <p style="color:#FFB300;margin:0.5rem 0 0 0;">{'升級至 Premium 解鎖' if APP_VERSION == 'china' else 'Upgrade to Premium to unlock'}</p>
+    </div>
+    """, unsafe_allow_html=True)
 
 def apply_custom_css(lang: str, theme: str = 'dark'):
     tokens = get_design_tokens(lang, theme)
@@ -333,6 +380,110 @@ tournament = load_tournament()
 def t(key: str) -> str:
     return get_text(key, st.session_state.language)
 
+def show_affiliate_section():
+    tokens = get_design_tokens(st.session_state.language, init_theme())
+
+    if APP_VERSION == 'china':
+        products = [
+            ("⚽ 世界盃正版球衣", "https://s.click.taobao.com/wc2026_jersey", "官方授權球衣，支持你嘅球隊"),
+            ("🎫 世界盃門票", "https://s.click.taobao.com/wc2026_tickets", "2026 美加墨世界盃現場門票"),
+            ("✈️ 世界盃旅行套餐", "https://s.click.taobao.com/wc2026_travel", "機票+酒店+門票一站式服務"),
+            ("🏆 世界盃紀念品", "https://s.click.taobao.com/wc2026_merch", "官方授權紀念品收藏"),
+        ]
+    else:
+        products = [
+            ("⚽ Official WC Jersey", "https://www.fifa.com/fifaplus/en/tournaments/mens/worldcup/canadamexicousa2026/shop/jerseys", "Official licensed jerseys"),
+            ("🎫 Match Tickets", "https://www.fifa.com/fifaplus/en/tournaments/mens/worldcup/canadamexicousa2026/tickets", "FIFA World Cup 2026 tickets"),
+            ("✈️ Travel Packages", "https://www.booking.com/searchresults.html?ss=world+cup+2026", "Flight + Hotel + Ticket bundles"),
+            ("🏆 Collectibles", "https://www.fifa.com/fifaplus/en/tournaments/mens/worldcup/canadamexicousa2026/shop", "Official licensed merchandise"),
+        ]
+
+    st.markdown(f"### 🛒 {'世界盃周邊推薦' if APP_VERSION == 'china' else 'World Cup Shop'}")
+    cols = st.columns(len(products))
+    for col, (name, url, desc) in zip(cols, products):
+        with col:
+            st.markdown(f"""
+            <div style="background:{tokens['card_bg']};border-radius:8px;padding:1rem;text-align:center;border:1px solid {tokens.get('surface_variant', '#333')};">
+                <h4>{name}</h4>
+                <p style="font-size:0.85rem;color:{tokens['text_secondary']};">{desc}</p>
+                <a href="{url}" target="_blank" style="background:{tokens['primary_color']};color:white;padding:8px 16px;border-radius:4px;text-decoration:none;display:inline-block;">{'查看詳情' if APP_VERSION == 'china' else 'Shop Now'}</a>
+            </div>
+            """, unsafe_allow_html=True)
+
+def show_monetization_guide():
+    lang = init_language()
+    theme = init_theme()
+    apply_custom_css(lang, theme)
+    tokens = get_design_tokens(lang, theme)
+
+    if APP_VERSION == 'china':
+        sections = {
+            "💰 Freemium 變現策略": [
+                "**基本策略**：免費提供基本預測（勝/平/負概率），付費解鎖高級分析",
+                "**定價建議**：月費 ¥29-49，年費 ¥199-299",
+                "**Premium 內容**：詳細因素拆解、歷史對比、賠率分析、實時推送",
+                "**轉化關鍵**：讓免費用戶體驗到價值，再引導付費",
+            ],
+            "🛒 Affiliate Marketing 收入": [
+                "**球衣/周邊**：淘寶聯盟、京東聯盟，佣金 3-10%",
+                "**門票**：官方授權渠道，佣金 5-15%",
+                "**旅行套餐**：攜程/飛豬聯盟，佣金 3-8%",
+                "**關鍵**：選擇非賭博類產品，避免法律風險",
+            ],
+            "📱 社交媒體引流": [
+                "**抖音**：世界盃預測短視頻 → 引流到 App → 轉化為註冊用戶",
+                "**B站**：5因素模型深度分析視頻 → 建立專業形象 → Premium 轉化",
+                "**小紅書**：世界盃攻略筆記 → 種草周邊產品 → Affiliate 收入",
+                "**微信公眾號**：每日預測文章 → 付費深度分析 → 知識付費",
+            ],
+            "📊 數據驅動優化": [
+                "**追蹤指標**：註冊轉化率、Premium 轉化率、Affiliate 點擊率",
+                "**A/B 測試**：測試不同定價、不同 Premium 內容、不同 Affiliate 產品",
+                "**用戶分層**：免費用戶 → 活躍用戶 → 付費用戶 → 超級用戶",
+                "**持續迭代**：基於數據優化產品，而非憑感覺",
+            ],
+        }
+    else:
+        sections = {
+            "💰 Freemium Strategy": [
+                "**Basic**: Free predictions (Win/Draw/Lose probability)",
+                "**Pricing**: Monthly $4.99-9.99, Annual $39.99-59.99",
+                "**Premium Content**: Detailed factor breakdown, historical comparison, odds analysis, real-time alerts",
+                "**Conversion Key**: Let free users experience value first, then guide to paid",
+            ],
+            "🛒 Affiliate Marketing Revenue": [
+                "**Jerseys/Merch**: Amazon Associates, FIFA Shop, 3-8% commission",
+                "**Tickets**: Official FIFA channels, 5-15% commission",
+                "**Travel**: Booking.com, Expedia affiliates, 3-8% commission",
+                "**Key**: Choose non-gambling products to avoid legal risks",
+            ],
+            "📱 Social Media Traffic": [
+                "**TikTok/IG Reels**: WC prediction shorts → Drive to App → Convert to registered users",
+                "**YouTube**: 5-Factor Model deep analysis → Build authority → Premium conversion",
+                "**Twitter/X**: Real-time match predictions → Build following → Affiliate revenue",
+                "**Blog/Newsletter**: Daily prediction articles → Premium analysis → Knowledge commerce",
+            ],
+            "📊 Data-Driven Optimization": [
+                "**Track Metrics**: Registration rate, Premium conversion rate, Affiliate click-through rate",
+                "**A/B Testing**: Test different pricing, Premium content, Affiliate products",
+                "**User Segmentation**: Free → Active → Paid → Super users",
+                "**Continuous Iteration**: Optimize based on data, not gut feeling",
+            ],
+        }
+
+    st.markdown(f"""
+    <div style="text-align: center; padding: 2rem;">
+        <h1>📚 {'變現教學指南' if APP_VERSION == 'china' else 'Monetization Guide'}</h1>
+        <p style="color:{tokens['text_secondary']};">{'如何從世界盃預測 App 賺錢' if APP_VERSION == 'china' else 'How to earn money from your WC2026 Predictor'}</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    for title, items in sections.items():
+        st.markdown(f"### {title}")
+        for item in items:
+            st.markdown(f"- {item}")
+        st.divider()
+
 def show_registration():
     lang = init_language()
     theme = init_theme()
@@ -352,10 +503,21 @@ def show_registration():
     with st.form("registration_form"):
         name = st.text_input(t('register_name'), placeholder=t('register_name_placeholder'))
         email = st.text_input(t('register_email'), placeholder=t('register_email_placeholder'))
-        if APP_VERSION == 'china':
-            phone = st.text_input(t('register_phone'), placeholder=t('register_phone_placeholder'), help='（可选）')
-        else:
-            phone = st.text_input(t('register_phone'), placeholder=t('register_phone_placeholder'))
+        phone_col1, phone_col2 = st.columns([1, 2])
+        with phone_col1:
+            default_code_idx = 3 if APP_VERSION == 'china' else 0
+            country_code = st.selectbox(
+                'Country Code',
+                options=[c[0] for c in COUNTRY_CODES],
+                format_func=lambda x: next(f'{c[0]} {c[1]}' for c in COUNTRY_CODES if c[0] == x),
+                index=default_code_idx,
+                label_visibility='collapsed'
+            )
+        with phone_col2:
+            if APP_VERSION == 'china':
+                phone_number = st.text_input(t('register_phone'), placeholder=t('register_phone_placeholder'), help='（可选）')
+            else:
+                phone_number = st.text_input(t('register_phone'), placeholder=t('register_phone_placeholder'))
 
         st.caption(f"🔒 {t('register_privacy')}")
 
@@ -367,6 +529,10 @@ def show_registration():
         submitted = st.form_submit_button(t('register_submit'), use_container_width=True)
 
         if submitted:
+            if phone_number and not phone_number.replace(' ', '').replace('-', '').isdigit():
+                st.error("Phone number should contain only digits" if lang == 'en' else "電話號碼只能包含數字" if lang == 'zh_hant' else "电话号码只能包含数字")
+                return
+            phone = f'{country_code} {phone_number}' if phone_number else ''
             if name and email:
                 if APP_VERSION == 'china' and not st.session_state.get('pipl_consent_checked', False):
                     if not pipl_consent:
@@ -395,12 +561,85 @@ def show_registration():
         if selected_lang != lang:
             set_language(selected_lang)
 
+def show_admin_page():
+    lang = init_language()
+    theme = init_theme()
+    apply_custom_css(lang, theme)
+    tokens = get_design_tokens(lang, theme)
+
+    if 'admin_authed' not in st.session_state:
+        st.session_state.admin_authed = False
+
+    if not st.session_state.admin_authed:
+        admin_pw = st.secrets.get('ADMIN_PASSWORD', 'beeverse2026') if hasattr(st, 'secrets') else 'beeverse2026'
+        pw = st.text_input('🔒 Admin Password', type='password')
+        if st.button('Login'):
+            if pw == admin_pw:
+                st.session_state.admin_authed = True
+                st.rerun()
+            else:
+                st.error('Wrong password')
+        return
+
+    from user_registration_db import get_all_registrations, get_registration_stats
+    import io
+
+    stats = get_registration_stats()
+
+    st.markdown(f"""
+    <div style="text-align: center; padding: 2rem;">
+        <h1>🔐 Admin Panel</h1>
+    </div>
+    """, unsafe_allow_html=True)
+
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Total Registrations", stats['total'])
+    with col2:
+        st.metric("🇨🇳 China Version", stats['china'])
+    with col3:
+        st.metric("🌍 International Version", stats['international'])
+    with col4:
+        st.metric("📅 Today", stats['today'])
+
+    st.divider()
+
+    rows = get_all_registrations()
+    if rows:
+        df = pd.DataFrame(rows, columns=['ID', 'Name', 'Email', 'Phone', 'Language', 'Version', 'Registered At'])
+        st.dataframe(df, use_container_width=True, hide_index=True)
+
+        csv_buffer = io.StringIO()
+        df.to_csv(csv_buffer, index=False)
+        csv_data = csv_buffer.getvalue()
+
+        st.download_button(
+            label="📥 Export CSV",
+            data=csv_data,
+            file_name=f"registrations_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
+    else:
+        st.info("No registrations yet")
+
+    if st.button("🚪 Logout"):
+        st.session_state.admin_authed = False
+        st.rerun()
+
 def main():
+    if st.session_state.get('show_admin', False):
+        show_admin_page()
+        return
+
     lang = init_language()
     theme = init_theme()
 
     if 'registered' not in st.session_state:
         st.session_state.registered = False
+
+    if 'is_premium' not in st.session_state:
+        st.session_state.is_premium = False
 
     if not st.session_state.registered:
         show_registration()
@@ -469,7 +708,8 @@ def main():
             t('model_analysis'),
             t('news_page'),
             t('xfactor_page'),
-            t('team_squads_page')
+            t('team_squads_page'),
+            '📚 ' + ('變現指南' if APP_VERSION == 'china' else 'Monetization Guide')
         ]
         page = st.radio(t('navigation'), pages)
 
@@ -492,6 +732,13 @@ def main():
             </div>
             """, unsafe_allow_html=True)
 
+        st.markdown("---")
+        show_affiliate_section()
+
+        st.divider()
+        if st.button("🔒", key="admin_lock"):
+            st.session_state.show_admin = not st.session_state.get('show_admin', False)
+
     try:
         if page == t('home'):
             show_home()
@@ -511,6 +758,8 @@ def main():
             show_xfactor()
         elif page == t('team_squads_page'):
             show_team_squads()
+        elif page == '📚 ' + ('變現指南' if APP_VERSION == 'china' else 'Monetization Guide'):
+            show_monetization_guide()
     except Exception as e:
         st.error(f"❌ {t('page_error')}: {str(e)}")
         st.info(t('try_refresh'))
@@ -703,54 +952,58 @@ def show_match_prediction():
         st.plotly_chart(fig, width='stretch')
 
         st.subheader(f"📊 {t('factor_breakdown')}")
-        factors = result['factors']
+        premium_badge()
+        if st.session_state.get('is_premium', False):
+            factors = result['factors']
 
-        st.write(f"**{t('expected_goals')}:**")
-        col_xg1, col_xg2 = st.columns(2)
-        with col_xg1:
-            st.metric(home_display, f"{factors['xg']['home']:.2f}")
-        with col_xg2:
-            st.metric(away_display, f"{factors['xg']['away']:.2f}")
+            st.write(f"**{t('expected_goals')}:**")
+            col_xg1, col_xg2 = st.columns(2)
+            with col_xg1:
+                st.metric(home_display, f"{factors['xg']['home']:.2f}")
+            with col_xg2:
+                st.metric(away_display, f"{factors['xg']['away']:.2f}")
 
-        st.write(f"**{t('player_factor')}:**")
-        categories = [t('player_factor')]
-        fig_radar = go.Figure()
-        fig_radar.add_trace(go.Scatterpolar(
-            r=[factors['player_factor']['home']],
-            theta=categories,
-            fill='toself',
-            fillcolor='rgba(76,175,80,0.3)',
-            line_color='#4CAF50',
-            name=home_display
-        ))
-        fig_radar.add_trace(go.Scatterpolar(
-            r=[factors['player_factor']['away']],
-            theta=categories,
-            fill='toself',
-            fillcolor='rgba(255,179,0,0.3)',
-            line_color='#FFB300',
-            name=away_display
-        ))
-        fig_radar.update_layout(
-            polar=dict(radialaxis=dict(visible=True)),
-            showlegend=True,
-            title=t('player_factor')
-        )
-        st.plotly_chart(fig_radar, width='stretch')
+            st.write(f"**{t('player_factor')}:**")
+            categories = [t('player_factor')]
+            fig_radar = go.Figure()
+            fig_radar.add_trace(go.Scatterpolar(
+                r=[factors['player_factor']['home']],
+                theta=categories,
+                fill='toself',
+                fillcolor='rgba(76,175,80,0.3)',
+                line_color='#4CAF50',
+                name=home_display
+            ))
+            fig_radar.add_trace(go.Scatterpolar(
+                r=[factors['player_factor']['away']],
+                theta=categories,
+                fill='toself',
+                fillcolor='rgba(255,179,0,0.3)',
+                line_color='#FFB300',
+                name=away_display
+            ))
+            fig_radar.update_layout(
+                polar=dict(radialaxis=dict(visible=True)),
+                showlegend=True,
+                title=t('player_factor')
+            )
+            st.plotly_chart(fig_radar, width='stretch')
 
-        st.write(f"**{t('defensive_pk')}:**")
-        col_pk1, col_pk2 = st.columns(2)
-        with col_pk1:
-            st.metric(home_display, f"{factors['defensive_pk']['home']:.2f}")
-        with col_pk2:
-            st.metric(away_display, f"{factors['defensive_pk']['away']:.2f}")
+            st.write(f"**{t('defensive_pk')}:**")
+            col_pk1, col_pk2 = st.columns(2)
+            with col_pk1:
+                st.metric(home_display, f"{factors['defensive_pk']['home']:.2f}")
+            with col_pk2:
+                st.metric(away_display, f"{factors['defensive_pk']['away']:.2f}")
 
-        st.write(f"**{t('xfactor_players')}:**")
-        col_xf1, col_xf2 = st.columns(2)
-        with col_xf1:
-            st.metric(home_display, f"{factors['xfactor']['home']:.2f}")
-        with col_xf2:
-            st.metric(away_display, f"{factors['xfactor']['away']:.2f}")
+            st.write(f"**{t('xfactor_players')}:**")
+            col_xf1, col_xf2 = st.columns(2)
+            with col_xf1:
+                st.metric(home_display, f"{factors['xfactor']['home']:.2f}")
+            with col_xf2:
+                st.metric(away_display, f"{factors['xfactor']['away']:.2f}")
+        else:
+            premium_gate("Detailed Factor Analysis")
 
 def show_team_comparison():
     st.title(f"⚔️ {t('team_comparison_title')}")
@@ -831,22 +1084,26 @@ def show_team_comparison():
         st.plotly_chart(fig_radar, width='stretch')
 
         st.subheader(f"📋 {get_team_name(team1, lang)} {t('xfactor_list_title')}")
-        team1_players = [p for p in comparison['team1_players'] if p['is_xfactor']]
-        if team1_players:
-            for player in team1_players:
-                player_name = get_player_name(player['name'], team1, lang)
-                st.write(f"⭐ {player_name} ({player['position']})")
-        else:
-            st.write(t('no_xfactor_players'))
+        premium_badge()
+        if st.session_state.get('is_premium', False):
+            team1_players = [p for p in comparison['team1_players'] if p['is_xfactor']]
+            if team1_players:
+                for player in team1_players:
+                    player_name = get_player_name(player['name'], team1, lang)
+                    st.write(f"⭐ {player_name} ({player['position']})")
+            else:
+                st.write(t('no_xfactor_players'))
 
-        st.subheader(f"📋 {get_team_name(team2, lang)} {t('xfactor_list_title')}")
-        team2_players = [p for p in comparison['team2_players'] if p['is_xfactor']]
-        if team2_players:
-            for player in team2_players:
-                player_name = get_player_name(player['name'], team2, lang)
-                st.write(f"⭐ {player_name} ({player['position']})")
+            st.subheader(f"📋 {get_team_name(team2, lang)} {t('xfactor_list_title')}")
+            team2_players = [p for p in comparison['team2_players'] if p['is_xfactor']]
+            if team2_players:
+                for player in team2_players:
+                    player_name = get_player_name(player['name'], team2, lang)
+                    st.write(f"⭐ {player_name} ({player['position']})")
+            else:
+                st.write(t('no_xfactor_players'))
         else:
-            st.write(t('no_xfactor_players'))
+            premium_gate("X-Factor Player Details")
 
 def show_player_database():
     st.title(f"👥 {t('player_database_title')}")
@@ -1034,31 +1291,34 @@ def show_model_analysis():
         st.metric(f"Phase 4", "10,001")
 
     st.subheader(f"🔧 {t('factor_weights_title')}")
+    premium_badge()
+    if st.session_state.get('is_premium', False):
+        weights_data = {
+            t('factor_attack_power').split('—')[0].strip(): 0.25,
+            t('factor_market_odds').split('—')[0].strip(): 0.20,
+            t('factor_squad_value').split('—')[0].strip(): 0.20,
+            t('factor_form_fitness').split('—')[0].strip(): 0.20,
+            t('factor_xfactor_players').split('—')[0].strip(): 0.15
+        }
 
-    weights_data = {
-        t('factor_attack_power').split('—')[0].strip(): 0.25,
-        t('factor_market_odds').split('—')[0].strip(): 0.20,
-        t('factor_squad_value').split('—')[0].strip(): 0.20,
-        t('factor_form_fitness').split('—')[0].strip(): 0.20,
-        t('factor_xfactor_players').split('—')[0].strip(): 0.15
-    }
+        weight_df = pd.DataFrame({
+            'Factor': list(weights_data.keys()),
+            'Weight': list(weights_data.values())
+        })
 
-    weight_df = pd.DataFrame({
-        'Factor': list(weights_data.keys()),
-        'Weight': list(weights_data.values())
-    })
+        fig = px.pie(weight_df, values='Weight', names='Factor', title=t('weight_distribution'),
+                     color_discrete_sequence=['#4CAF50', '#FFB300', '#81C784', '#F57F17', '#A5D6A7'])
+        st.plotly_chart(fig, width='stretch')
 
-    fig = px.pie(weight_df, values='Weight', names='Factor', title=t('weight_distribution'),
-                 color_discrete_sequence=['#4CAF50', '#FFB300', '#81C784', '#F57F17', '#A5D6A7'])
-    st.plotly_chart(fig, width='stretch')
-
-    st.subheader(f"📊 {t('three_board_params')}")
-    params = engine.three_board.factors
-    params_df = pd.DataFrame({
-        t('parameter'): list(params.keys()),
-        t('value'): list(params.values())
-    })
-    st.dataframe(params_df, width='stretch')
+        st.subheader(f"📊 {t('three_board_params')}")
+        params = engine.three_board.factors
+        params_df = pd.DataFrame({
+            t('parameter'): list(params.keys()),
+            t('value'): list(params.values())
+        })
+        st.dataframe(params_df, width='stretch')
+    else:
+        premium_gate("Factor Weights & Model Parameters")
 
     st.subheader(f"🏆 {t('team_strength_distribution')}")
     team_data = []
