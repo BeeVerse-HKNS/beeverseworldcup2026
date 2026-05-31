@@ -3,6 +3,7 @@ import math
 import random
 from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass
+from odds_data_layer import OddsDataLayer
 
 @dataclass
 class Player:
@@ -63,10 +64,12 @@ class FormulaV9:
         self.players = self._load_player_data(player_data_path)
         self.teams = self._build_team_database()
         self.three_board = ThreeBoardModel()
+        self.odds_layer = OddsDataLayer()
+        self.alpha = 0.3
         self.factor_weights = {
-            'xg_weight': 0.25,
-            'v7_weight': 0.20,
-            'odds_weight': 0.20,
+            'xg_weight': 0.22,
+            'v7_weight': 0.18,
+            'market_consensus_weight': 0.15,
             'player_weight': 0.15,
             'defensive_pk_weight': 0.10,
             'substitution_weight': 0.05,
@@ -78,25 +81,48 @@ class FormulaV9:
             with open(path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
             players = []
-            for p in data.get('players', []):
-                players.append(Player(
-                    name=p['name'],
-                    team=p['team'],
-                    position=p['position'],
-                    age=p['age'],
-                    dribbling_skill=p.get('dribbling_skill', 0),
-                    pace=p.get('pace', 0),
-                    shooting=p.get('shooting', 0),
-                    passing=p.get('passing', 0),
-                    defending=p.get('defending', 0),
-                    fitness_level=p.get('fitness_level', 0),
-                    world_cup_experience=p.get('world_cup_experience', 0),
-                    is_xfactor=p.get('is_xfactor', False),
-                    xfactor_type=p.get('xfactor_type'),
-                    injury_status=p.get('injury_status', 'fit')
-                ))
+            if 'teams' in data:
+                for team_name, team_data in data['teams'].items():
+                    for p in team_data.get('players', []):
+                        rating = p.get('rating', 75)
+                        players.append(Player(
+                            name=p['name'],
+                            team=team_name,
+                            position=p['position'],
+                            age=p['age'],
+                            dribbling_skill=p.get('dribbling_skill', int(rating * 0.9)),
+                            pace=p.get('pace', int(rating * 0.85)),
+                            shooting=p.get('shooting', int(rating * 0.8)),
+                            passing=p.get('passing', int(rating * 0.85)),
+                            defending=p.get('defending', int(rating * 0.7)),
+                            fitness_level=p.get('fitness_level', p.get('fitness', 80)),
+                            world_cup_experience=p.get('world_cup_experience', p.get('experience', 0)),
+                            is_xfactor=p.get('is_xfactor', rating >= 90),
+                            xfactor_type=p.get('xfactor_type'),
+                            injury_status=p.get('injury_status', 'fit')
+                        ))
+            else:
+                for p in data.get('players', []):
+                    rating = p.get('rating', 75)
+                    players.append(Player(
+                        name=p['name'],
+                        team=p['team'],
+                        position=p['position'],
+                        age=p['age'],
+                        dribbling_skill=p.get('dribbling_skill', int(rating * 0.9)),
+                        pace=p.get('pace', int(rating * 0.85)),
+                        shooting=p.get('shooting', int(rating * 0.8)),
+                        passing=p.get('passing', int(rating * 0.85)),
+                        defending=p.get('defending', int(rating * 0.7)),
+                        fitness_level=p.get('fitness_level', p.get('fitness', 80)),
+                        world_cup_experience=p.get('world_cup_experience', p.get('experience', 0)),
+                        is_xfactor=p.get('is_xfactor', rating >= 90),
+                        xfactor_type=p.get('xfactor_type'),
+                        injury_status=p.get('injury_status', 'fit')
+                    ))
             return players
         except Exception as e:
+            print(f"[ERROR] _load_player_data failed: {e}")
             return []
     
     def _build_team_database(self) -> Dict[str, Team]:
@@ -175,6 +201,23 @@ class FormulaV9:
         
         return (max_dribble + max_pace + max_shooting) / 3 * self.three_board.factors['xfactor_multiplier']
     
+    def _calculate_market_consensus_factor(self, team_home_name: str, team_away_name: str) -> dict:
+        try:
+            home_prob, draw_prob, away_prob = self.odds_layer.get_enhanced_probability(
+                team_home_name, team_away_name,
+                model_prob=(0.33, 0.33, 0.33),
+                alpha=self.alpha
+            )
+            return {'home': home_prob, 'draw': draw_prob, 'away': away_prob}
+        except Exception:
+            return {'home': 0.333, 'draw': 0.334, 'away': 0.333}
+    
+    def update_alpha(self, model_accuracy: float, market_accuracy: float):
+        if market_accuracy > model_accuracy:
+            self.alpha = min(0.5, self.alpha + 0.05)
+        elif model_accuracy > market_accuracy:
+            self.alpha = max(0.1, self.alpha - 0.05)
+    
     def predict_match(self, home_team_name: str, away_team_name: str, 
                      home_odds: float = 2.0, draw_odds: float = 3.2, away_odds: float = 3.5) -> Dict:
         home_team = self.teams.get(home_team_name)
@@ -205,15 +248,20 @@ class FormulaV9:
         xfactor_home = self.calculate_xfactor(home_team)
         xfactor_away = self.calculate_xfactor(away_team)
         
+        market_consensus = self._calculate_market_consensus_factor(home_team_name, away_team_name)
+        mc_home = market_consensus['home']
+        mc_away = market_consensus['away']
+        
         weighted_xg = (xg_home - xg_away) * self.factor_weights['xg_weight']
         weighted_v7 = (v7_base - 0.5) * self.factor_weights['v7_weight'] * 2
-        weighted_odds = (home_prob - 0.5) * self.factor_weights['odds_weight'] * 2
+        weighted_odds = (home_prob - 0.5) * self.factor_weights['market_consensus_weight'] * 2
+        weighted_market = (mc_home - mc_away) * self.factor_weights['market_consensus_weight'] * 2
         weighted_player = (player_home - player_away) * self.factor_weights['player_weight'] * 2
         weighted_defensive_pk = (defensive_pk_home - defensive_pk_away) * self.factor_weights['defensive_pk_weight'] * 2
         weighted_substitution = (substitution_home - substitution_away) * self.factor_weights['substitution_weight'] * 2
         weighted_xfactor = (xfactor_home - xfactor_away) * self.factor_weights['xfactor_weight'] * 2
         
-        total_score = (weighted_xg + weighted_v7 + weighted_odds + 
+        total_score = (weighted_xg + weighted_v7 + weighted_market + 
                       weighted_player + weighted_defensive_pk + 
                       weighted_substitution + weighted_xfactor)
         
@@ -245,6 +293,7 @@ class FormulaV9:
                 'xg': {'home': round(xg_home, 4), 'away': round(xg_away, 4)},
                 'v7_base': round(v7_base, 4),
                 'odds_composite': {'home': round(home_prob, 4), 'draw': round(draw_prob, 4), 'away': round(away_prob, 4)},
+                'market_consensus': {'home': round(mc_home, 4), 'draw': round(market_consensus['draw'], 4), 'away': round(mc_away, 4)},
                 'player_factor': {'home': round(player_home, 4), 'away': round(player_away, 4)},
                 'defensive_pk': {'home': round(defensive_pk_home, 4), 'away': round(defensive_pk_away, 4)},
                 'substitution': {'home': round(substitution_home, 4), 'away': round(substitution_away, 4)},
@@ -267,6 +316,192 @@ class FormulaV9:
                 }
             },
             'confidence': round(min(99, 70 + (abs(total_score) * 20)), 1)
+        }
+    
+    def explain_prediction(self, home_team_name: str, away_team_name: str, 
+                          home_odds: float = 2.0, draw_odds: float = 3.2, away_odds: float = 3.5) -> Dict:
+        prediction = self.predict_match(home_team_name, away_team_name, home_odds, draw_odds, away_odds)
+        
+        if not prediction.get('success', False):
+            return prediction
+        
+        home_team = self.teams.get(home_team_name)
+        away_team = self.teams.get(away_team_name)
+        
+        factors_detail = {}
+        
+        xg_home = prediction['factors']['xg']['home']
+        xg_away = prediction['factors']['xg']['away']
+        xg_diff = xg_home - xg_away
+        factors_detail['xg'] = {
+            'name': 'Expected Goals (xG)',
+            'home_value': xg_home,
+            'away_value': xg_away,
+            'diff': round(xg_diff, 4),
+            'contribution': 0.0,
+            'explanation': f"{home_team_name} 嘅進攻能力（{home_team.attack_power:.1f}）vs {away_team_name} 嘅防守（{away_team.defense_strength:.1f}），預期進球 {'較多' if xg_diff > 0 else '較少' if xg_diff < 0 else '相若'}",
+            'calculation': f"attack_power({home_team.attack_power:.1f}) / 100 × (100 - defense({away_team.defense_strength:.1f})) / 100 × 1.5 = {xg_home:.4f}",
+            'weight': self.factor_weights['xg_weight']
+        }
+        
+        v7_base = prediction['factors']['v7_base']
+        v7_diff = (v7_base - 0.5) * 2
+        factors_detail['v7_base'] = {
+            'name': 'V7 Base (主場優勢 + 實力差)',
+            'home_value': round(v7_base, 4),
+            'away_value': round(1 - v7_base + 0.5, 4),
+            'diff': round(v7_diff, 4),
+            'contribution': 0.0,
+            'explanation': f"主場優勢（+0.05）+ 實力差（{home_team.overall_strength:.1f} - {away_team.overall_strength:.1f}）/ 100 = {v7_base:.4f}，{'主隊佔優' if v7_diff > 0 else '客隊佔優' if v7_diff < 0 else '勢均力敵'}",
+            'calculation': f"0.5 + (strength_diff({home_team.overall_strength:.1f} - {away_team.overall_strength:.1f}) / 100) + 0.05 = {v7_base:.4f}",
+            'weight': self.factor_weights['v7_weight']
+        }
+        
+        odds_home = prediction['factors']['odds_composite']['home']
+        odds_away = prediction['factors']['odds_composite']['away']
+        odds_diff = (odds_home - 0.5) * 2
+        factors_detail['odds'] = {
+            'name': 'Market Consensus Probability (市場預期概率)',
+            'home_value': odds_home,
+            'away_value': odds_away,
+            'diff': round(odds_diff, 4),
+            'contribution': 0.0,
+            'explanation': f"統計概率轉換：主勝 {home_odds:.2f} → {odds_home:.2%}，客勝 {away_odds:.2f} → {odds_away:.2%}，市場{'看好主隊' if odds_diff > 0 else '看好客隊' if odds_diff < 0 else '認為勢均力敵'}",
+            'calculation': f"1 / {home_odds:.2f} = {odds_home:.4f}（歸一化後），diff = ({odds_home:.4f} - 0.5) × 2 = {odds_diff:.4f}",
+            'weight': self.factor_weights['market_consensus_weight']
+        }
+        
+        player_home = prediction['factors']['player_factor']['home']
+        player_away = prediction['factors']['player_factor']['away']
+        player_diff = player_home - player_away
+        home_xfactor_count = sum(1 for p in home_team.players if p.is_xfactor)
+        away_xfactor_count = sum(1 for p in away_team.players if p.is_xfactor)
+        factors_detail['player'] = {
+            'name': 'Player Factor (球員綜合素質)',
+            'home_value': player_home,
+            'away_value': player_away,
+            'diff': round(player_diff, 4),
+            'contribution': 0.0,
+            'explanation': f"X-Factor 球員數：{home_team_name} {home_xfactor_count} vs {away_team_name} {away_xfactor_count}，體能同經驗綜合評估",
+            'calculation': f"0.5 + xfactor_bonus({home_xfactor_count}×0.05) + fitness_avg + exp_bonus",
+            'weight': self.factor_weights['player_weight']
+        }
+        
+        def_pk_home = prediction['factors']['defensive_pk']['home']
+        def_pk_away = prediction['factors']['defensive_pk']['away']
+        def_pk_diff = def_pk_home - def_pk_away
+        factors_detail['defensive_pk'] = {
+            'name': 'Defensive PK (防守 + 門將)',
+            'home_value': def_pk_home,
+            'away_value': def_pk_away,
+            'diff': round(def_pk_diff, 4),
+            'contribution': 0.0,
+            'explanation': f"防守穩定性：{home_team_name} {home_team.defense_strength:.1f} vs {away_team_name} {away_team.defense_strength:.1f}，門將能力綜合評估",
+            'calculation': f"(defense({home_team.defense_strength:.1f}) / 100 + gk_skill) / 2 = {def_pk_home:.4f}",
+            'weight': self.factor_weights['defensive_pk_weight']
+        }
+        
+        sub_home = prediction['factors']['substitution']['home']
+        sub_away = prediction['factors']['substitution']['away']
+        sub_diff = sub_home - sub_away
+        factors_detail['substitution'] = {
+            'name': 'Substitution Effect (後備質量)',
+            'home_value': sub_home,
+            'away_value': sub_away,
+            'diff': round(sub_diff, 4),
+            'contribution': 0.0,
+            'explanation': f"後備球員體能水平影響換人策略，{home_team_name} 後備質量 {'較優' if sub_diff > 0 else '較差' if sub_diff < 0 else '相若'}",
+            'calculation': f"bench_fitness_avg × 0.15 = {sub_home:.4f}",
+            'weight': self.factor_weights['substitution_weight']
+        }
+        
+        xfactor_home = prediction['factors']['xfactor']['home']
+        xfactor_away = prediction['factors']['xfactor']['away']
+        xfactor_diff = xfactor_home - xfactor_away
+        factors_detail['xfactor'] = {
+            'name': 'X-Factor (關鍵球員能力)',
+            'home_value': xfactor_home,
+            'away_value': xfactor_away,
+            'diff': round(xfactor_diff, 4),
+            'contribution': 0.0,
+            'explanation': f"關鍵球員嘅盤扭、速度、射門能力綜合，{home_team_name} X-Factor {'較強' if xfactor_diff > 0 else '較弱' if xfactor_diff < 0 else '相若'}",
+            'calculation': f"(max_dribble + max_pace + max_shooting) / 3 × 1.4 = {xfactor_home:.4f}",
+            'weight': self.factor_weights['xfactor_weight']
+        }
+        
+        weighted_values = {
+            'xg': abs(xg_diff * self.factor_weights['xg_weight']),
+            'v7_base': abs(v7_diff * self.factor_weights['v7_weight']),
+            'odds': abs(odds_diff * self.factor_weights['market_consensus_weight']),
+            'player': abs(player_diff * self.factor_weights['player_weight']),
+            'defensive_pk': abs(def_pk_diff * self.factor_weights['defensive_pk_weight']),
+            'substitution': abs(sub_diff * self.factor_weights['substitution_weight']),
+            'xfactor': abs(xfactor_diff * self.factor_weights['xfactor_weight'])
+        }
+        
+        total_weighted = sum(weighted_values.values())
+        
+        for factor_key in factors_detail:
+            if total_weighted > 0:
+                factors_detail[factor_key]['contribution'] = round(weighted_values[factor_key] / total_weighted * 100, 2)
+            else:
+                factors_detail[factor_key]['contribution'] = round(100 / 7, 2)
+        
+        sorted_factors = sorted(factors_detail.items(), key=lambda x: x[1]['contribution'], reverse=True)
+        key_factors = [factor_key for factor_key, _ in sorted_factors[:3]]
+        
+        summary_parts = []
+        winner = home_team_name if prediction['home_win_probability'] > prediction['away_win_probability'] else away_team_name
+        loser = away_team_name if winner == home_team_name else home_team_name
+        
+        if prediction['predicted_result'] == 'DRAW':
+            summary_parts.append(f"{home_team_name} 同 {away_team_name} 實力接近，預測為和局")
+        else:
+            summary_parts.append(f"{winner} 勝率較高（{max(prediction['home_win_probability'], prediction['away_win_probability']):.2%}）")
+        
+        key_factor_names = [factors_detail[k]['name'].split(' (')[0] for k in key_factors]
+        summary_parts.append(f"主要因為：{', '.join(key_factor_names)}")
+        
+        for i, (factor_key, factor_data) in enumerate(sorted_factors[:2]):
+            if factor_data['diff'] != 0:
+                better_team = home_team_name if factor_data['diff'] > 0 else away_team_name
+                summary_parts.append(f"{factor_data['name'].split(' (')[0]}：{better_team} 佔優（貢獻度 {factor_data['contribution']:.1f}%）")
+        
+        summary = "。".join(summary_parts) + "。"
+        
+        confidence = prediction['confidence']
+        confidence_explanation = f"基於 7 大因素綜合分析，信心度為 {confidence}%（"
+        if confidence >= 85:
+            confidence_explanation += "高信心）"
+        elif confidence >= 75:
+            confidence_explanation += "中高信心）"
+        elif confidence >= 65:
+            confidence_explanation += "中等信心）"
+        else:
+            confidence_explanation += "低信心，結果可能受其他因素影響）"
+        
+        return {
+            'success': True,
+            'prediction': prediction,
+            'explanation': {
+                'summary': summary,
+                'key_factors': key_factors,
+                'factors_detail': factors_detail,
+                'total_contribution': 100.0,
+                'confidence_explanation': confidence_explanation,
+                'winner_analysis': {
+                    'predicted_winner': winner if prediction['predicted_result'] != 'DRAW' else 'DRAW',
+                    'win_probability': max(prediction['home_win_probability'], prediction['away_win_probability']),
+                    'key_advantages': [
+                        {
+                            'factor': factors_detail[k]['name'],
+                            'advantage': factors_detail[k]['explanation'],
+                            'contribution': factors_detail[k]['contribution']
+                        }
+                        for k in key_factors
+                    ]
+                }
+            }
         }
     
     def get_team_comparison(self, team1_name: str, team2_name: str) -> Dict:

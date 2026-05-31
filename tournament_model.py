@@ -1,43 +1,44 @@
 import json
 import random
 from typing import Dict, List, Tuple, Optional
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from formula_v9_ultimate import FormulaV9
 
 class TournamentModel:
     def __init__(self, player_data_path: str):
         self.engine = FormulaV9(player_data_path)
-        self.wc2026_teams = [
-            "Japan", "South Korea", "Saudi Arabia", "Australia", "Iran", "Qatar",
-            "Nigeria", "Senegal", "Morocco", "Egypt", "Cameroon", "Algeria",
-            "USA", "Mexico", "Canada", "Costa Rica", "Jamaica", "Panama",
-            "Brazil", "Argentina", "Uruguay", "Colombia", "Chile", "Peru",
-            "Germany", "France", "Spain", "England", "Italy", "Netherlands", 
-            "Portugal", "Belgium", "Croatia", "Switzerland", "Austria", "Denmark"
-        ]
+        self.wc2026_groups = {
+            'A': ['Mexico', 'South Africa', 'South Korea', 'Czech Republic'],
+            'B': ['Canada', 'Bosnia', 'Qatar', 'Switzerland'],
+            'C': ['Brazil', 'Morocco', 'Haiti', 'Scotland'],
+            'D': ['USA', 'Paraguay', 'Australia', 'Poland'],
+            'E': ['Germany', 'Curacao', 'Denmark', 'Italy'],
+            'F': ['Netherlands', 'Japan', 'Tunisia', 'Sweden'],
+            'G': ['Belgium', 'Egypt', 'Iran', 'New Zealand'],
+            'H': ['Spain', 'Cape Verde', 'Saudi Arabia', 'Uruguay'],
+            'I': ['France', 'Senegal', 'Iraq', 'Norway'],
+            'J': ['Argentina', 'Algeria', 'Austria', 'Jordan'],
+            'K': ['Portugal', 'Congo DR', 'Uzbekistan', 'Colombia'],
+            'L': ['England', 'Croatia', 'Ghana', 'Nigeria']
+        }
+        self.wc2026_teams = []
+        for group_teams in self.wc2026_groups.values():
+            self.wc2026_teams.extend(group_teams)
         
         self.group_stage_teams = []
         self.knockout_bracket = {}
     
-    def generate_groups(self) -> List[List[str]]:
-        teams_copy = self.wc2026_teams.copy()
-        random.shuffle(teams_copy)
-        
-        groups = []
-        for i in range(8):
-            group = teams_copy[i*4:(i+1)*4]
-            groups.append(group)
-        
-        return groups
+    def generate_groups(self) -> Dict[str, List[str]]:
+        return dict(self.wc2026_groups)
     
-    def simulate_group_stage(self) -> Dict[str, List[str]]:
+    def simulate_group_stage(self) -> Dict[str, Dict]:
         groups = self.generate_groups()
         group_results = {}
         
-        group_letters = ["A", "B", "C", "D", "E", "F", "G", "H"]
-        
-        for idx, group in enumerate(groups):
-            group_name = f"Group {group_letters[idx]}"
-            standings = {team: {'points': 0, 'goals_for': 0, 'goals_against': 0, 'goal_diff': 0} for team in group}
+        for group_letter, group in groups.items():
+            group_name = f"Group {group_letter}"
+            standings = {team: {'points': 0, 'goals_for': 0, 'goals_against': 0, 'goal_diff': 0, 'played': 0, 'won': 0, 'drawn': 0, 'lost': 0} for team in group}
             
             for i in range(len(group)):
                 for j in range(i + 1, len(group)):
@@ -46,14 +47,29 @@ class TournamentModel:
                     
                     result = self.engine.predict_match(home_team, away_team)
                     
-                    if result['predicted_result'] == "HOME_WIN":
+                    if not result.get('success', False):
+                        if home_team < away_team:
+                            predicted = "HOME_WIN"
+                        else:
+                            predicted = "AWAY_WIN"
+                    else:
+                        predicted = result['predicted_result']
+                    
+                    standings[home_team]['played'] += 1
+                    standings[away_team]['played'] += 1
+                    
+                    if predicted == "HOME_WIN":
                         standings[home_team]['points'] += 3
                         standings[home_team]['goals_for'] += 2
+                        standings[home_team]['won'] += 1
                         standings[away_team]['goals_against'] += 2
-                    elif result['predicted_result'] == "AWAY_WIN":
+                        standings[away_team]['lost'] += 1
+                    elif predicted == "AWAY_WIN":
                         standings[away_team]['points'] += 3
                         standings[away_team]['goals_for'] += 2
+                        standings[away_team]['won'] += 1
                         standings[home_team]['goals_against'] += 2
+                        standings[home_team]['lost'] += 1
                     else:
                         standings[home_team]['points'] += 1
                         standings[away_team]['points'] += 1
@@ -61,6 +77,8 @@ class TournamentModel:
                         standings[away_team]['goals_for'] += 1
                         standings[home_team]['goals_against'] += 1
                         standings[away_team]['goals_against'] += 1
+                        standings[home_team]['drawn'] += 1
+                        standings[away_team]['drawn'] += 1
             
             for team in standings:
                 standings[team]['goal_diff'] = standings[team]['goals_for'] - standings[team]['goals_against']
@@ -68,18 +86,68 @@ class TournamentModel:
             sorted_teams = sorted(group, key=lambda t: (-standings[t]['points'], -standings[t]['goal_diff'], -standings[t]['goals_for']))
             
             group_results[group_name] = {
+                'group_letter': group_letter,
                 'teams': group,
                 'standings': standings,
                 'qualifiers': sorted_teams[:2],
-                'third_place': sorted_teams[2] if len(sorted_teams) > 2 else None
+                'third_place': sorted_teams[2] if len(sorted_teams) > 2 else None,
+                'fourth_place': sorted_teams[3] if len(sorted_teams) > 3 else None
             }
         
         self.group_stage_teams = group_results
         return group_results
     
-    def generate_knockout_bracket(self, group_results: Dict[str, List[str]]) -> Dict:
-        group_letters = ["A", "B", "C", "D", "E", "F", "G", "H"]
+    def display_group_tables(self, group_results: Dict[str, Dict] = None) -> str:
+        if group_results is None:
+            group_results = self.group_stage_teams
+        
+        if not group_results:
+            return "No group stage results available. Run simulate_group_stage() first."
+        
+        output = []
+        group_letters = list(self.wc2026_groups.keys())
+        
+        for letter in group_letters:
+            group_name = f"Group {letter}"
+            if group_name not in group_results:
+                continue
+            
+            group_data = group_results[group_name]
+            standings = group_data['standings']
+            teams = group_data['teams']
+            
+            sorted_teams = sorted(teams, key=lambda t: (
+                -standings[t]['points'],
+                -standings[t]['goal_diff'],
+                -standings[t]['goals_for']
+            ))
+            
+            output.append(f"\n{'='*50}")
+            output.append(f"  Group {letter}")
+            output.append(f"{'='*50}")
+            output.append(f"  {'Team':<20} {'P':>3} {'W':>3} {'D':>3} {'L':>3} {'GF':>4} {'GA':>4} {'GD':>4} {'Pts':>4}")
+            output.append(f"  {'-'*46}")
+            
+            for pos, team in enumerate(sorted_teams, 1):
+                s = standings[team]
+                marker = ""
+                if pos <= 2:
+                    marker = " *"
+                elif pos == 3:
+                    marker = " ?"
+                output.append(
+                    f"  {team:<20} {s['played']:>3} {s['won']:>3} {s['drawn']:>3} "
+                    f"{s['lost']:>3} {s['goals_for']:>4} {s['goals_against']:>4} "
+                    f"{s['goal_diff']:>+4} {s['points']:>4}{marker}"
+                )
+            
+            output.append(f"  * = Qualified  ? = Best 3rd place candidate")
+        
+        return "\n".join(output)
+    
+    def generate_knockout_bracket(self, group_results: Dict[str, Dict]) -> Dict:
         qualifiers = []
+        group_letters = list(self.wc2026_groups.keys())
         
         for letter in group_letters:
             group_name = f"Group {letter}"
@@ -90,15 +158,22 @@ class TournamentModel:
         for letter in group_letters:
             group_name = f"Group {letter}"
             if group_name in group_results and group_results[group_name]['third_place']:
-                third_places.append(group_results[group_name]['third_place'])
+                team = group_results[group_name]['third_place']
+                standings = group_results[group_name]['standings'][team]
+                third_places.append({
+                    'team': team,
+                    'points': standings['points'],
+                    'goal_diff': standings['goal_diff'],
+                    'goals_for': standings['goals_for']
+                })
         
-        random.shuffle(third_places)
-        lucky_third = third_places[:2]
+        third_places.sort(key=lambda x: (-x['points'], -x['goal_diff'], -x['goals_for']))
+        best_thirds = [t['team'] for t in third_places[:8]]
         
-        all_knockout_teams = qualifiers + lucky_third
-        random.shuffle(all_knockout_teams)
+        all_knockout_teams = qualifiers + best_thirds
         
         bracket = {
+            'round_of_32': [],
             'round_of_16': [],
             'quarterfinals': [],
             'semifinals': [],
@@ -106,22 +181,32 @@ class TournamentModel:
             'winner': None
         }
         
-        bracket['round_of_16'] = [
-            (all_knockout_teams[0], all_knockout_teams[1]),
-            (all_knockout_teams[2], all_knockout_teams[3]),
-            (all_knockout_teams[4], all_knockout_teams[5]),
-            (all_knockout_teams[6], all_knockout_teams[7]),
-            (all_knockout_teams[8], all_knockout_teams[9]),
-            (all_knockout_teams[10], all_knockout_teams[11]),
-            (all_knockout_teams[12], all_knockout_teams[13]),
-            (all_knockout_teams[14], all_knockout_teams[15])
-        ]
+        for i in range(0, len(all_knockout_teams), 2):
+            bracket['round_of_32'].append((all_knockout_teams[i], all_knockout_teams[i + 1]))
         
         self.knockout_bracket = bracket
         return bracket
     
     def simulate_knockout_match(self, team1: str, team2: str, round_name: str) -> Tuple[str, Dict]:
         result = self.engine.predict_match(team1, team2)
+        
+        if not result.get('success', False):
+            if team1 < team2:
+                winner = team1
+            else:
+                winner = team2
+            loser = team2 if winner == team1 else team1
+            return winner, {
+                'match': f"{team1} vs {team2}",
+                'round': round_name,
+                'winner': winner,
+                'loser': loser,
+                'home_win_prob': 0.5,
+                'away_win_prob': 0.5,
+                'draw_prob': 0.0,
+                'confidence': 50,
+                'fallback': True
+            }
         
         if result['predicted_result'] == "HOME_WIN":
             winner = team1
@@ -154,6 +239,20 @@ class TournamentModel:
         print("Generating Knockout Bracket...")
         bracket = self.generate_knockout_bracket(group_results)
         
+        print("Simulating Round of 32...")
+        round_of_32_results = []
+        round_of_16_teams = []
+        for match in bracket['round_of_32']:
+            winner, result = self.simulate_knockout_match(match[0], match[1], "Round of 32")
+            round_of_32_results.append(result)
+            round_of_16_teams.append(winner)
+        
+        bracket['round_of_32_results'] = round_of_32_results
+        
+        bracket['round_of_16'] = []
+        for i in range(0, len(round_of_16_teams), 2):
+            bracket['round_of_16'].append((round_of_16_teams[i], round_of_16_teams[i + 1]))
+        
         print("Simulating Round of 16...")
         round_of_16_results = []
         quarterfinalists = []
@@ -165,12 +264,9 @@ class TournamentModel:
         bracket['round_of_16_results'] = round_of_16_results
         
         print("Simulating Quarterfinals...")
-        quarterfinal_matches = [
-            (quarterfinalists[0], quarterfinalists[1]),
-            (quarterfinalists[2], quarterfinalists[3]),
-            (quarterfinalists[4], quarterfinalists[5]),
-            (quarterfinalists[6], quarterfinalists[7])
-        ]
+        quarterfinal_matches = []
+        for i in range(0, len(quarterfinalists), 2):
+            quarterfinal_matches.append((quarterfinalists[i], quarterfinalists[i + 1]))
         quarterfinal_results = []
         semifinalists = []
         for match in quarterfinal_matches:
@@ -237,8 +333,8 @@ class TournamentModel:
         
         bracket = tournament_result['knockout_bracket']
         
-        knockout_rounds = ['round_of_16_results', 'quarterfinal_results', 'semifinal_results']
-        round_names = ['Round of 16', 'Quarterfinals', 'Semifinals']
+        knockout_rounds = ['round_of_32_results', 'round_of_16_results', 'quarterfinal_results', 'semifinal_results']
+        round_names = ['Round of 32', 'Round of 16', 'Quarterfinals', 'Semifinals']
         
         for round_key, round_name in zip(knockout_rounds, round_names):
             if round_key in bracket:
@@ -264,7 +360,7 @@ class TournamentModel:
                 if round_key in bracket:
                     for result in bracket[round_key]:
                         if team_name == result['loser']:
-                            round_positions = {'Round of 16': 9, 'Quarterfinals': 5, 'Semifinals': 3}
+                            round_positions = {'Round of 32': 17, 'Round of 16': 9, 'Quarterfinals': 5, 'Semifinals': 3}
                             stats['final_position'] = round_positions[round_name]
                             break
         
@@ -273,21 +369,23 @@ class TournamentModel:
 if __name__ == "__main__":
     tournament = TournamentModel('data/wc2026_player_database.json')
     
-    print("=== World Cup 2026 Tournament Simulation ===")
+    print("=== World Cup 2026 Tournament Simulation (48 Teams, 12 Groups) ===")
     result = tournament.simulate_tournament()
     
     print(f"\n🏆 World Cup 2026 Champion: {result['champion']}")
     print(f"🥈 Runner-up: {result['runner_up']}")
     print(f"🥉 Third Place: {result['third_place']}")
     
-    print("\n=== Group Stage Results ===")
-    for group_name, group_data in result['group_stage'].items():
-        print(f"\n{group_name}:")
-        for team in group_data['qualifiers']:
-            print(f"  ✓ {team}")
+    print("\n=== Group Stage Tables ===")
+    print(tournament.display_group_tables(result['group_stage']))
     
     print("\n=== Knockout Results ===")
     bracket = result['knockout_bracket']
+    
+    if 'round_of_32_results' in bracket:
+        print("\nRound of 32:")
+        for match in bracket['round_of_32_results']:
+            print(f"  {match['match']} → {match['winner']}")
     
     print("\nRound of 16:")
     for match in bracket['round_of_16_results']:
