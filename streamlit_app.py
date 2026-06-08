@@ -7,7 +7,14 @@ import os
 from pathlib import Path
 from datetime import datetime
 from formula_v9_ultimate import FormulaV9
+from odds_data_layer import OddsIntegratedPredictor
 from tournament_model import TournamentModel
+
+try:
+    from formula_v11_emoglyph import FormulaV11Engine
+    _V11_AVAILABLE = True
+except ImportError:
+    _V11_AVAILABLE = False
 from languages import LANGUAGES, LANGUAGE_NAMES, get_text, get_language_name, get_available_languages, get_default_language
 from player_translations import get_player_name, get_team_name
 from user_registration_db import save_registration, get_registration_count
@@ -414,6 +421,23 @@ def load_tournament():
 
 engine = load_engine()
 tournament = load_tournament()
+
+@st.cache_resource
+def load_odds_predictor():
+    return OddsIntegratedPredictor(alpha=0.6)
+
+odds_predictor = load_odds_predictor()
+
+@st.cache_resource
+def load_v11_engine():
+    if not _V11_AVAILABLE:
+        return None
+    try:
+        return FormulaV11Engine()
+    except Exception:
+        return None
+
+v11_engine = load_v11_engine()
 
 def t(key: str) -> str:
     return get_text(key, st.session_state.language)
@@ -866,6 +890,7 @@ def main():
             t('news_page'),
             t('xfactor_page'),
             t('team_squads_page'),
+            '🌡️ ' + ('極端環境分析' if APP_VERSION == 'china' else 'Extreme Environment'),
             '📚 ' + ('變現指南' if APP_VERSION == 'china' else 'Monetization Guide'),
             '💼 ' + ('商業方案' if APP_VERSION == 'china' else 'Business Solutions')
         ]
@@ -929,6 +954,8 @@ def main():
             show_xfactor()
         elif page == t('team_squads_page'):
             show_team_squads()
+        elif page == '🌡️ ' + ('極端環境分析' if APP_VERSION == 'china' else 'Extreme Environment'):
+            show_extreme_environment()
         elif page == '📚 ' + ('變現指南' if APP_VERSION == 'china' else 'Monetization Guide'):
             show_monetization_guide()
         elif page == '💼 ' + ('商業方案' if APP_VERSION == 'china' else 'Business Solutions'):
@@ -1091,6 +1118,11 @@ def show_match_prediction():
     with col5:
         away_odds = st.number_input(t('away_win_odds'), min_value=1.01, max_value=50.0, value=3.5, step=0.01)
 
+    use_odds = st.toggle("Odds Integration", value=True, help="Blend model prediction with market odds: P_final = 0.6 × P_odds + 0.4 × P_model")
+    if use_odds:
+        alpha_val = st.slider("Odds Weight (α)", min_value=0.0, max_value=1.0, value=0.6, step=0.05, help="α=1.0 = pure odds, α=0.0 = pure model")
+        odds_predictor.alpha = alpha_val
+
     if st.button(t('predict_match'), width='stretch'):
         result = engine.predict_match(home_team, away_team, home_odds, draw_odds, away_odds)
 
@@ -1098,7 +1130,26 @@ def show_match_prediction():
             st.error(result.get('error', t('prediction_failed')))
             return
 
-        st.success(f"**{t('predicted_result')}:** {result['predicted_result']}")
+        model_probs = (
+            result['home_win_probability'],
+            result['draw_probability'],
+            result['away_win_probability'],
+        )
+
+        if use_odds:
+            blended = odds_predictor.predict(home_team, away_team, model_probs)
+            display_home = blended.final_home
+            display_draw = blended.final_draw
+            display_away = blended.final_away
+            display_result = blended.predicted_result
+            st.success(f"**{t('predicted_result')}:** {display_result} (Odds-Enhanced)")
+        else:
+            display_home = model_probs[0]
+            display_draw = model_probs[1]
+            display_away = model_probs[2]
+            display_result = result['predicted_result']
+            st.success(f"**{t('predicted_result')}:** {display_result}")
+
         st.info(f"**{t('confidence_level')}:** {result['confidence']}%")
 
         if disclaimer_engine:
@@ -1113,22 +1164,65 @@ def show_match_prediction():
         home_display = get_team_name(home_team, lang)
         away_display = get_team_name(away_team, lang)
 
-        col_a, col_b, col_c = st.columns(3)
-        with col_a:
-            st.metric(f"{home_display} Win", f"{result['home_win_probability']:.2%}")
-        with col_b:
-            st.metric("Draw", f"{result['draw_probability']:.2%}")
-        with col_c:
-            st.metric(f"{away_display} Win", f"{result['away_win_probability']:.2%}")
+        if use_odds:
+            st.subheader("📊 Probability Comparison")
+            comp_col1, comp_col2 = st.columns(2)
+            with comp_col1:
+                st.markdown("**Model Only**")
+                m_col1, m_col2, m_col3 = st.columns(3)
+                with m_col1:
+                    st.metric(f"{home_display}", f"{model_probs[0]:.2%}")
+                with m_col2:
+                    st.metric("Draw", f"{model_probs[1]:.2%}")
+                with m_col3:
+                    st.metric(f"{away_display}", f"{model_probs[2]:.2%}")
+            with comp_col2:
+                st.markdown(f"**Blended (α={odds_predictor.alpha:.2f})**")
+                b_col1, b_col2, b_col3 = st.columns(3)
+                with b_col1:
+                    st.metric(f"{home_display}", f"{display_home:.2%}")
+                with b_col2:
+                    st.metric("Draw", f"{display_draw:.2%}")
+                with b_col3:
+                    st.metric(f"{away_display}", f"{display_away:.2%}")
 
-        fig = go.Figure(data=[go.Pie(
-            labels=[f"{home_display} Win", "Draw", f"{away_display} Win"],
-            values=[result['home_win_probability'], result['draw_probability'], result['away_win_probability']],
-            hole=0.3,
-            marker=dict(colors=['#4CAF50', '#FFB300', '#81C784'])
-        )])
-        fig.update_layout(title_text=t('probability_distribution'))
-        st.plotly_chart(fig, width='stretch')
+            fig = go.Figure(data=[go.Pie(
+                labels=[f"{home_display} Win", "Draw", f"{away_display} Win"],
+                values=[display_home, display_draw, display_away],
+                hole=0.3,
+                marker=dict(colors=['#4CAF50', '#FFB300', '#81C784'])
+            )])
+            fig.update_layout(title_text=f"Blended Probability (α={odds_predictor.alpha:.2f})")
+            st.plotly_chart(fig, width='stretch')
+
+            stats = odds_predictor.get_accuracy_stats()
+            if stats['total_matches'] > 0:
+                st.subheader("📈 Accuracy Comparison")
+                acc_col1, acc_col2, acc_col3 = st.columns(3)
+                with acc_col1:
+                    st.metric("Model Only", f"{stats['model_accuracy']:.1%}")
+                with acc_col2:
+                    st.metric("Odds-Blended", f"{stats['blended_accuracy']:.1%}")
+                with acc_col3:
+                    delta = stats['blended_accuracy'] - stats['model_accuracy']
+                    st.metric("Improvement", f"{delta:+.1%}")
+        else:
+            col_a, col_b, col_c = st.columns(3)
+            with col_a:
+                st.metric(f"{home_display} Win", f"{display_home:.2%}")
+            with col_b:
+                st.metric("Draw", f"{display_draw:.2%}")
+            with col_c:
+                st.metric(f"{away_display} Win", f"{display_away:.2%}")
+
+            fig = go.Figure(data=[go.Pie(
+                labels=[f"{home_display} Win", "Draw", f"{away_display} Win"],
+                values=[display_home, display_draw, display_away],
+                hole=0.3,
+                marker=dict(colors=['#4CAF50', '#FFB300', '#81C784'])
+            )])
+            fig.update_layout(title_text=t('probability_distribution'))
+            st.plotly_chart(fig, width='stretch')
 
         st.subheader(f"📊 {t('factor_breakdown')}")
         premium_badge()
@@ -1792,6 +1886,147 @@ def show_team_squads():
                     height=250
                 )
                 st.plotly_chart(fig_player, width='stretch')
+
+def show_extreme_environment():
+    """V11.1 Extreme Environment + LightDarkBalance Analysis Page"""
+    is_cn = APP_VERSION == 'china'
+    
+    if not v11_engine:
+        st.error("V11 Engine not available" if not is_cn else "V11 引擎未載入")
+        return
+    
+    st.title("🌡️ " + ("極端環境 × 正暗平衡分析" if is_cn else "Extreme Environment × LightDarkBalance"))
+    st.caption("Formula V11.1 — 16 Dimensions × 3 EmoGlyphPlay Engines" if not is_cn else "Formula V11.1 — 16 維度 × 3 EmoGlyphPlay 引擎")
+    
+    from formula_v11_emoglyph import WC2026_GROUPS, ELO_RATINGS
+    from wc2026_venue_data import VENUES, get_wbgt_risk, get_travel_fatigue
+    from wc2026_recovery_data import get_team_recovery, get_fatigue_risk_level
+    
+    # Section 1: Venue Heat Map
+    st.markdown("### 🌡️ " + ("場館高溫風險" if is_cn else "Venue Heat Risk"))
+    
+    venue_data = []
+    for vid, v in VENUES.items():
+        risk = get_wbgt_risk(vid, "afternoon")
+        venue_data.append({
+            "Venue": v["name"], "City": v["city"], "Country": v["country"],
+            "WBGT (°C)": v["wbgt_threshold"], "Risk": risk["risk_level"],
+            "Altitude (m)": v["altitude_meters"]
+        })
+    
+    df_venues = pd.DataFrame(venue_data)
+    risk_colors = {"low": "🟢", "medium": "🟡", "high": "🟠", "extreme": "🔴"}
+    df_venues["Risk"] = df_venues["Risk"].map(lambda x: risk_colors.get(x, "⚪") + " " + x.title())
+    st.dataframe(df_venues, use_container_width=True, hide_index=True)
+    
+    # Section 2: Team Recovery Status
+    st.markdown("### 💤 " + ("球隊恢復狀態" if is_cn else "Team Recovery Status"))
+    
+    all_teams = []
+    for teams in WC2026_GROUPS.values():
+        all_teams.extend(teams)
+    
+    recovery_data = []
+    for team in all_teams:
+        rec = get_team_recovery(team)
+        risk = get_fatigue_risk_level(team)
+        risk_icon = {"low": "🟢", "medium": "🟡", "high": "🟠", "extreme": "🔴"}.get(risk, "⚪")
+        recovery_data.append({
+            "Team": team, "League": rec["primary_league"],
+            "Days Rest": rec["days_rest_before_wc"],
+            "CL Players": rec["cl_final_players"],
+            "Recovery": f"{rec['recovery_coefficient']:.2f}",
+            "Risk": f"{risk_icon} {risk.title()}"
+        })
+    
+    df_recovery = pd.DataFrame(recovery_data)
+    st.dataframe(df_recovery, use_container_width=True, hide_index=True)
+    
+    # Section 3: Match Prediction with LightDarkBalance
+    st.markdown("### ⚖️ " + ("正暗平衡預測" if is_cn else "LightDarkBalance Prediction"))
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        team_a = st.selectbox("Team A" if not is_cn else "球隊 A", all_teams, index=0, key="v11_team_a")
+    with col2:
+        team_b = st.selectbox("Team B" if not is_cn else "球隊 B", all_teams, index=5, key="v11_team_b")
+    
+    col_v, col_t = st.columns(2)
+    with col_v:
+        venue_id = st.selectbox("Venue" if not is_cn else "場館", list(VENUES.keys()), 
+                                format_func=lambda x: VENUES[x]["name"], key="v11_venue")
+    with col_t:
+        match_time = st.selectbox("Time" if not is_cn else "時間", 
+                                  ["morning", "afternoon", "evening"], index=1, key="v11_time")
+    
+    stage = st.selectbox("Stage" if not is_cn else "階段",
+                         ["group", "r32", "r16", "qf", "sf", "final"], index=1, key="v11_stage")
+    
+    if st.button("🔮 " + ("預測" if is_cn else "Predict"), key="v11_predict_btn"):
+        ctx = {"venue_id": venue_id, "match_time": match_time, "stage": stage, "match_number": 4}
+        result = v11_engine.predict_match(team_a, team_b, ctx)
+        
+        # Win probabilities
+        st.markdown("#### " + ("勝率預測" if is_cn else "Win Probability"))
+        prob_col1, prob_col2, prob_col3 = st.columns(3)
+        with prob_col1:
+            st.metric(team_a, f"{result['prob_a_win']:.1%}")
+        with prob_col2:
+            st.metric("Draw" if not is_cn else "平局", f"{result['prob_draw']:.1%}")
+        with prob_col3:
+            st.metric(team_b, f"{result['prob_b_win']:.1%}")
+        
+        # LightDarkBalance
+        st.markdown("#### ⚖️ LightDarkBalance")
+        ldb_col1, ldb_col2 = st.columns(2)
+        with ldb_col1:
+            ldb_a = result["ldb_a"]
+            confidence_icon = {"high": "🟢", "medium": "🟡", "low": "🔴"}.get(ldb_a["confidence"], "⚪")
+            st.markdown(f"**{team_a}**")
+            st.markdown(f"- LDB Score: {ldb_a['ldb']:.3f}")
+            st.markdown(f"- Light: {ldb_a['light']:.3f} | Dark: {ldb_a['dark']:.3f}")
+            st.markdown(f"- Confidence: {confidence_icon} {ldb_a['confidence']}")
+        with ldb_col2:
+            ldb_b = result["ldb_b"]
+            confidence_icon = {"high": "🟢", "medium": "🟡", "low": "🔴"}.get(ldb_b["confidence"], "⚪")
+            st.markdown(f"**{team_b}**")
+            st.markdown(f"- LDB Score: {ldb_b['ldb']:.3f}")
+            st.markdown(f"- Light: {ldb_b['light']:.3f} | Dark: {ldb_b['dark']:.3f}")
+            st.markdown(f"- Confidence: {confidence_icon} {ldb_b['confidence']}")
+        
+        if result["upset_alert"]:
+            st.warning("⚠️ " + ("冷門警報！此場比賽可能出現意外結果" if is_cn else "Upset Alert! This match may see an unexpected result"))
+        
+        # SunTzu Strategy
+        st.markdown("#### 🏛️ SunTzu " + ("策略分析" if is_cn else "Strategy"))
+        st_col1, st_col2 = st.columns(2)
+        with st_col1:
+            sz_a = result["suntzu_a"]
+            st.markdown(f"**{team_a}**: {sz_a['suntzu']:.3f}")
+            st.markdown(f"道(Purpose): {sz_a['dao']:.2f} | 天(Weather): {sz_a['tian']:.2f}")
+            st.markdown(f"地(Terrain): {sz_a['di']:.2f} | 將(Commander): {sz_a['jiang']:.2f}")
+            st.markdown(f"法(Method): {sz_a['fa']:.2f}")
+        with st_col2:
+            sz_b = result["suntzu_b"]
+            st.markdown(f"**{team_b}**: {sz_b['suntzu']:.3f}")
+            st.markdown(f"道(Purpose): {sz_b['dao']:.2f} | 天(Weather): {sz_b['tian']:.2f}")
+            st.markdown(f"地(Terrain): {sz_b['di']:.2f} | 將(Commander): {sz_b['jiang']:.2f}")
+            st.markdown(f"法(Method): {sz_b['fa']:.2f}")
+        
+        # Dimension Scores
+        st.markdown("#### 📊 " + ("16維度評分" if is_cn else "16 Dimension Scores"))
+        dim_data = []
+        for dim in result["scores_a"]:
+            dim_data.append({
+                "Dimension": dim,
+                team_a: result["scores_a"][dim],
+                team_b: result["scores_b"].get(dim, 0),
+                "Gap": result["scores_a"][dim] - result["scores_b"].get(dim, 0),
+                "Weight": v11_engine.weights.get(dim, 0)
+            })
+        df_dims = pd.DataFrame(dim_data)
+        st.dataframe(df_dims.style.format({team_a: "{:.3f}", team_b: "{:.3f}", "Gap": "{:+.3f}", "Weight": "{:.0%}"}),
+                     use_container_width=True, hide_index=True)
 
 if __name__ == "__main__":
     main()
