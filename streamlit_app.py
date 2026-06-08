@@ -700,7 +700,8 @@ def show_engagement_gate():
     share_text_cn = "🏆 2026世界杯AI预测器！17个因素、5000+次模拟、每支球队路径分析。免费使用！🔮⚽ #世界杯2026 #AI预测"
     share_text_tw = "🏆 2026世界盃AI預測器！17個因素、5000+次模擬、每支球隊路徑分析。免費使用！🔮⚽ #世界盃2026 #AI預測"
     share_text = share_text_cn if is_cn else share_text_en
-    encoded_share = __import__('urllib.parse').quote(share_text)
+    from urllib.parse import quote
+    encoded_share = quote(share_text)
 
     # Step 1: Like
     st.markdown("### 👍 " + ("第一步：点赞" if is_cn else "Step 1: Like us"))
