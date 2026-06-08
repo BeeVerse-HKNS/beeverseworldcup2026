@@ -2,28 +2,29 @@
 Formula V11.1: EmoGlyph × SunTzu × Pratitya 三引擎融合预测引擎
 ==============================================================
 
-World Cup 2026 完整预测引擎 — 16 维度 × 3 引擎架构
+World Cup 2026 完整预测引擎 — 17 维度 × 3 引擎架构
 
 Architecture:
-    16 Dimensions (7 External + 9 Internal):
-        External (34%):
+    17 Dimensions (8 External + 9 Internal):
+        External (37%):
             D1  rest_recovery         12%  — 休息/恢复 (最高权重)
             D2  extreme_heat           5%  — 极端高温 WBGT
             D3  travel_fatigue         4%  — 旅行疲劳
             D4  home_advantage         5%  — 主场优势
             D5  altitude_effect        3%  — 海拔效应
-            D6  luck_factor            3%  — 运气因子 (NEW)
-            D7  schedule_density       2%  — 赛程密度 (NEW)
-        Internal (66%):
-            D8  elo_rating            10%  — Elo 评级
-            D9  recent_form            8%  — 近期状态
-            D10 squad_depth           10%  — 阵容深度
-            D11 coaching_style         8%  — 教练风格
-            D12 xfactor_players        8%  — X因子球员
-            D13 mental_psychological   5%  — 心理/精神 (NEW)
-            D14 squad_value            7%  — 阵容身价
-            D15 tournament_experience  5%  — 赛事经验
-            D16 tactical_matchup       5%  — 战术对位
+            D6  luck_factor            2%  — 运气因子 (NEW)
+            D7  schedule_density       1%  — 赛程密度 (NEW)
+            D8  structural_advantage   3%  — 结构优势 (NEW: 48-team format)
+        Internal (63%):
+            D9  elo_rating            10%  — Elo 评级
+            D10 recent_form            8%  — 近期状态
+            D11 squad_depth           10%  — 阵容深度
+            D12 coaching_style         8%  — 教练风格
+            D13 xfactor_players        8%  — X因子球员
+            D14 mental_psychological   5%  — 心理/精神 (NEW)
+            D15 squad_value            7%  — 阵容身价
+            D16 tournament_experience  5%  — 赛事经验
+            D17 tactical_matchup       5%  — 战术对位
 
     3 EmoGlyphPlay Engines:
         1. LightDarkBalance  — ⊕(Light, Dark)^Ξ × Context - |Light - Dark|
@@ -87,6 +88,7 @@ except ImportError:
 __all__ = [
     "DIMENSION_WEIGHTS",
     "WC2026_GROUPS",
+    "GROUP_STRENGTH_DATA",
     "HOST_NATIONS",
     "ELO_RATINGS",
     "FIFA_RANKINGS",
@@ -110,15 +112,16 @@ __all__ = [
 # ===================================================================
 
 DIMENSION_WEIGHTS: Dict[str, float] = {
-    # EXTERNAL (34%)
+    # EXTERNAL (36%)
     "rest_recovery": 0.12,
     "extreme_heat": 0.05,
     "travel_fatigue": 0.04,
-    "home_advantage": 0.05,
+    "home_advantage": 0.04,
     "altitude_effect": 0.03,
-    "luck_factor": 0.03,
-    "schedule_density": 0.02,
-    # INTERNAL (66%)
+    "luck_factor": 0.02,
+    "schedule_density": 0.01,
+    "structural_advantage": 0.03,
+    # INTERNAL (64%)
     "elo_rating": 0.10,
     "recent_form": 0.08,
     "squad_depth": 0.10,
@@ -151,6 +154,26 @@ WC2026_GROUPS: Dict[str, List[str]] = {
 }
 
 HOST_NATIONS = {"USA", "Canada", "Mexico"}
+
+# ===================================================================
+#  GROUP STRENGTH — parity score per group (0=balanced, 1=dominant)
+#  Higher parity = stronger team can secure early, rest in match 3
+# ===================================================================
+
+GROUP_STRENGTH_DATA: Dict[str, Dict[str, Any]] = {
+    "A": {"dominant_team": "Mexico", "parity": 0.55, "early_secure_prob": 0.60},
+    "B": {"dominant_team": "Switzerland", "parity": 0.50, "early_secure_prob": 0.55},
+    "C": {"dominant_team": "Brazil", "parity": 0.80, "early_secure_prob": 0.85},
+    "D": {"dominant_team": "USA", "parity": 0.60, "early_secure_prob": 0.65},
+    "E": {"dominant_team": "Germany", "parity": 0.75, "early_secure_prob": 0.80},
+    "F": {"dominant_team": "Netherlands", "parity": 0.60, "early_secure_prob": 0.65},
+    "G": {"dominant_team": "Belgium", "parity": 0.65, "early_secure_prob": 0.70},
+    "H": {"dominant_team": "Spain", "parity": 0.75, "early_secure_prob": 0.80},
+    "I": {"dominant_team": "France", "parity": 0.80, "early_secure_prob": 0.85},
+    "J": {"dominant_team": "Argentina", "parity": 0.80, "early_secure_prob": 0.85},
+    "K": {"dominant_team": "Portugal", "parity": 0.70, "early_secure_prob": 0.75},
+    "L": {"dominant_team": "England", "parity": 0.55, "early_secure_prob": 0.60},
+}
 
 
 # ===================================================================
@@ -844,7 +867,7 @@ class FormulaV11Engine:
         return TOURNAMENT_EXPERIENCE.get(team, 0.30)
 
     def score_tactical_matchup(self, team: str, opponent: str, match_context: dict) -> float:
-        """D16: Tactical Matchup (5%)"""
+        """D17: Tactical Matchup (5%)"""
         team_style = COACH_STYLES_2026.get(team, {"style": "balanced"})["style"]
         opp_style = COACH_STYLES_2026.get(opponent, {"style": "balanced"})["style"]
         styles = ["attacking", "possession", "defensive", "pragmatic", "high_press", "counter_attack", "balanced"]
@@ -852,12 +875,73 @@ class FormulaV11Engine:
             return TACTICAL_MATRIX.get(team_style, {}).get(opp_style, 0.50)
         return 0.50
 
+    def score_structural_advantage(self, team: str, match_context: dict) -> float:
+        """D17: Structural Advantage (3%) — 48-team format: early secure + rest + bracket position"""
+        # Find which group this team is in
+        team_group = None
+        for group_name, teams in WC2026_GROUPS.items():
+            if team in teams:
+                team_group = group_name
+                break
+
+        if team_group is None:
+            return 0.30
+
+        group_data = GROUP_STRENGTH_DATA.get(team_group, {"parity": 0.50, "early_secure_prob": 0.50, "dominant_team": ""})
+
+        # Is this team the dominant team in the group?
+        is_dominant = group_data.get("dominant_team") == team
+
+        # early_secure_bonus: can this team win first 2 matches and secure top-2?
+        if is_dominant:
+            early_secure_bonus = group_data["early_secure_prob"]
+        else:
+            # Non-dominant teams have lower early-secure probability
+            team_elo = ELO_RATINGS.get(team, 1500)
+            group_elos = [ELO_RATINGS.get(t, 1500) for t in WC2026_GROUPS[team_group]]
+            avg_elo = sum(group_elos) / len(group_elos)
+            if team_elo > avg_elo:
+                early_secure_bonus = 0.40 + (team_elo - avg_elo) / 500 * 0.30
+            else:
+                early_secure_bonus = 0.20
+
+        # rest_advantage: if team can rest in match 3, they gain recovery for R32
+        squad_depth = SQUAD_DEPTH_DATA.get(team, {"sub_teams_available": 1})
+        sub_teams = squad_depth.get("sub_teams_available", 1) if isinstance(squad_depth, dict) else 1
+        if is_dominant and sub_teams >= 2:
+            rest_advantage = 0.85  # Can rotate squad effectively
+        elif is_dominant:
+            rest_advantage = 0.70  # Can rest but limited rotation
+        else:
+            rest_advantage = 0.40  # Must fight all 3 matches
+
+        # bracket_position_value: 1st place gets easier R32 draw
+        if is_dominant:
+            bracket_position_value = 0.85  # 1st place = favorable draw
+        else:
+            team_elo = ELO_RATINGS.get(team, 1500)
+            group_elos = [ELO_RATINGS.get(t, 1500) for t in WC2026_GROUPS[team_group]]
+            sorted_elos = sorted(group_elos, reverse=True)
+            if team_elo >= sorted_elos[1]:  # Likely 2nd place
+                bracket_position_value = 0.60
+            elif team_elo >= sorted_elos[2]:  # Likely 3rd place
+                bracket_position_value = 0.40  # 3rd place = harder draw
+            else:
+                bracket_position_value = 0.25  # 4th place = unlikely to advance
+
+        score = (
+            early_secure_bonus * 0.40
+            + rest_advantage * 0.35
+            + bracket_position_value * 0.25
+        )
+        return min(1.0, max(0.05, score))
+
     # ================================================================
-    #  Helper: Calculate all 16 dimensions for one team
+    #  Helper: Calculate all 17 dimensions for one team
     # ================================================================
 
     def _calculate_all_dimensions(self, team: str, opponent: str, ctx: dict) -> dict:
-        """Calculate all 16 dimension scores for a team"""
+        """Calculate all 17 dimension scores for a team"""
         return {
             "rest_recovery": self.score_rest_recovery(team, ctx),
             "extreme_heat": self.score_extreme_heat(team, ctx),
@@ -866,6 +950,7 @@ class FormulaV11Engine:
             "altitude_effect": self.score_altitude_effect(team, ctx),
             "luck_factor": self.score_luck_factor(team, ctx),
             "schedule_density": self.score_schedule_density(team, ctx),
+            "structural_advantage": self.score_structural_advantage(team, ctx),
             "elo_rating": self.score_elo_rating(team, ctx),
             "recent_form": self.score_recent_form(team, ctx),
             "squad_depth": self.score_squad_depth(team, ctx),
@@ -1165,26 +1250,51 @@ class FormulaV11Engine:
         return {"n_simulations": total, "predictions": sorted_predictions}
 
     def _simulate_group_stage(self, base_context: dict) -> dict:
-        """Simulate all group stage matches with random perturbation"""
+        """Simulate all group stage matches with rotation modeling"""
         group_results = {}
         for group_name, teams in WC2026_GROUPS.items():
-            group_results[group_name] = {t: {"points": 0, "gf": 0, "ga": 0} for t in teams}
-            # Round-robin: 6 matches per group
-            for i in range(len(teams)):
-                for j in range(i + 1, len(teams)):
-                    team_a, team_b = teams[i], teams[j]
-                    ctx = dict(base_context or {})
-                    ctx["stage"] = "group"
-                    result = self.predict_match(team_a, team_b, ctx)
-                    # Determine outcome with randomness
-                    rand = random.random()
-                    if rand < result["prob_a_win"]:
-                        group_results[group_name][team_a]["points"] += 3
-                    elif rand < result["prob_a_win"] + result["prob_draw"]:
-                        group_results[group_name][team_a]["points"] += 1
-                        group_results[group_name][team_b]["points"] += 1
-                    else:
-                        group_results[group_name][team_b]["points"] += 3
+            group_results[group_name] = {t: {"points": 0, "gf": 0, "ga": 0, "wins": 0} for t in teams}
+            match_order = [
+                (0, 1), (2, 3),  # Match day 1
+                (0, 2), (1, 3),  # Match day 2
+                (0, 3), (1, 2),  # Match day 3
+            ]
+            for idx_a, idx_b in match_order:
+                team_a, team_b = teams[idx_a], teams[idx_b]
+                ctx = dict(base_context or {})
+                ctx["stage"] = "group"
+
+                # Check if team has already secured advancement (6 points = 2 wins)
+                a_secured = group_results[group_name][team_a]["wins"] >= 2
+                b_secured = group_results[group_name][team_b]["wins"] >= 2
+
+                result = self.predict_match(team_a, team_b, ctx)
+
+                # Apply rotation penalty for teams that have already secured
+                if a_secured:
+                    result["prob_a_win"] *= 0.80  # 20% reduction for rotation
+                    result["prob_draw"] *= 1.10   # More likely to draw
+                if b_secured:
+                    result["prob_b_win"] *= 0.80
+                    result["prob_draw"] *= 1.10
+
+                # Normalize probabilities
+                total = result["prob_a_win"] + result["prob_draw"] + result["prob_b_win"]
+                result["prob_a_win"] /= total
+                result["prob_draw"] /= total
+                result["prob_b_win"] /= total
+
+                # Determine outcome
+                rand = random.random()
+                if rand < result["prob_a_win"]:
+                    group_results[group_name][team_a]["points"] += 3
+                    group_results[group_name][team_a]["wins"] += 1
+                elif rand < result["prob_a_win"] + result["prob_draw"]:
+                    group_results[group_name][team_a]["points"] += 1
+                    group_results[group_name][team_b]["points"] += 1
+                else:
+                    group_results[group_name][team_b]["points"] += 3
+                    group_results[group_name][team_b]["wins"] += 1
         return group_results
 
     def _determine_advancing_teams(self, group_results: dict) -> list:

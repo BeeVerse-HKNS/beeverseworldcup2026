@@ -15,6 +15,18 @@ try:
     _V11_AVAILABLE = True
 except ImportError:
     _V11_AVAILABLE = False
+
+try:
+    from wc2026_team_path_generator import TeamPathGenerator
+    _PATH_GEN_AVAILABLE = True
+except ImportError:
+    _PATH_GEN_AVAILABLE = False
+
+try:
+    from wc2026_social_media_generator import SocialMediaGenerator
+    _SOCIAL_GEN_AVAILABLE = True
+except ImportError:
+    _SOCIAL_GEN_AVAILABLE = False
 from languages import LANGUAGES, LANGUAGE_NAMES, get_text, get_language_name, get_available_languages, get_default_language
 from player_translations import get_player_name, get_team_name
 from user_registration_db import save_registration, get_registration_count
@@ -891,6 +903,7 @@ def main():
             t('xfactor_page'),
             t('team_squads_page'),
             '🌡️ ' + ('極端環境分析' if APP_VERSION == 'china' else 'Extreme Environment'),
+            '🗺️ ' + ('球隊路徑策略' if APP_VERSION == 'china' else 'Team Path Strategy'),
             '📚 ' + ('變現指南' if APP_VERSION == 'china' else 'Monetization Guide'),
             '💼 ' + ('商業方案' if APP_VERSION == 'china' else 'Business Solutions')
         ]
@@ -956,6 +969,8 @@ def main():
             show_team_squads()
         elif page == '🌡️ ' + ('極端環境分析' if APP_VERSION == 'china' else 'Extreme Environment'):
             show_extreme_environment()
+        elif page == '🗺️ ' + ('球隊路徑策略' if APP_VERSION == 'china' else 'Team Path Strategy'):
+            show_team_path_strategy()
         elif page == '📚 ' + ('變現指南' if APP_VERSION == 'china' else 'Monetization Guide'):
             show_monetization_guide()
         elif page == '💼 ' + ('商業方案' if APP_VERSION == 'china' else 'Business Solutions'):
@@ -1896,7 +1911,7 @@ def show_extreme_environment():
         return
     
     st.title("🌡️ " + ("極端環境 × 正暗平衡分析" if is_cn else "Extreme Environment × LightDarkBalance"))
-    st.caption("Formula V11.1 — 16 Dimensions × 3 EmoGlyphPlay Engines" if not is_cn else "Formula V11.1 — 16 維度 × 3 EmoGlyphPlay 引擎")
+    st.caption("Formula V11.1 — 17 Dimensions × 3 EmoGlyphPlay Engines" if not is_cn else "Formula V11.1 — 17 維度 × 3 EmoGlyphPlay 引擎")
     
     from formula_v11_emoglyph import WC2026_GROUPS, ELO_RATINGS
     from wc2026_venue_data import VENUES, get_wbgt_risk, get_travel_fatigue
@@ -2014,7 +2029,7 @@ def show_extreme_environment():
             st.markdown(f"法(Method): {sz_b['fa']:.2f}")
         
         # Dimension Scores
-        st.markdown("#### 📊 " + ("16維度評分" if is_cn else "16 Dimension Scores"))
+        st.markdown("#### 📊 " + ("17維度評分" if is_cn else "17 Dimension Scores"))
         dim_data = []
         for dim in result["scores_a"]:
             dim_data.append({
@@ -2027,6 +2042,163 @@ def show_extreme_environment():
         df_dims = pd.DataFrame(dim_data)
         st.dataframe(df_dims.style.format({team_a: "{:.3f}", team_b: "{:.3f}", "Gap": "{:+.3f}", "Weight": "{:.0%}"}),
                      use_container_width=True, hide_index=True)
+
+def show_team_path_strategy():
+    """Team Path Strategy page — per-team path analysis with social media export"""
+    is_cn = APP_VERSION == 'china'
+
+    if not _PATH_GEN_AVAILABLE:
+        st.error("Team Path Generator not available" if not is_cn else "球隊路徑生成器未載入")
+        return
+
+    st.title("🗺️ " + ("球隊路徑策略分析" if is_cn else "Team Path Strategy"))
+    st.caption("Formula V11.1 — 17 Dimensions × 3 EmoGlyphPlay Engines × 48-Team Structural Advantage" if not is_cn
+               else "Formula V11.1 — 17 維度 × 3 EmoGlyphPlay 引擎 × 48 隊結構優勢")
+
+    from formula_v11_emoglyph import WC2026_GROUPS
+    from wc2026_team_path_generator import TeamPathGenerator
+
+    @st.cache_resource
+    def load_path_gen():
+        return TeamPathGenerator()
+
+    path_gen = load_path_gen()
+
+    # Build team list from groups
+    all_teams = []
+    for teams in WC2026_GROUPS.values():
+        all_teams.extend(teams)
+
+    # Team selector
+    selected_team = st.selectbox(
+        "Select Team" if not is_cn else "選擇球隊",
+        all_teams,
+        index=all_teams.index("France") if "France" in all_teams else 0,
+        key="path_team_select"
+    )
+
+    # Language for social media
+    sm_lang = st.selectbox(
+        "Social Media Language" if not is_cn else "社交媒體語言",
+        ["en", "zh_cn", "zh_tw"],
+        format_func=lambda x: {"en": "English", "zh_cn": "簡體中文", "zh_tw": "繁體中文"}[x],
+        key="path_sm_lang"
+    )
+
+    if st.button("🔍 " + ("分析路徑" if is_cn else "Analyze Path"), key="path_analyze_btn"):
+        with st.spinner("Generating path analysis..." if not is_cn else "正在生成路徑分析..."):
+            path = path_gen.generate_team_path(selected_team)
+
+        # Header
+        st.markdown(f"## {'⚽' if not is_cn else '⚽'} {selected_team}")
+        group_label = f"Group {path['group']}" if not is_cn else f"第 {path['group']} 組"
+        st.markdown(f"**{group_label}** — {', '.join(path['group_teammates'])}")
+
+        # Structural Advantage
+        sa = path['structural_advantage']
+        sa_score = path['structural_advantage_score']
+        sa_icon = {"HIGH": "🟢", "MEDIUM": "🟡", "LOW": "🔴"}.get(sa, "⚪")
+        sa_label = "結構優勢" if is_cn else "Structural Advantage"
+        st.markdown(f"### {sa_icon} {sa_label}: {sa} ({sa_score:.0%})")
+        st.caption(path['structural_advantage_reason'])
+
+        # Group Stage Matches
+        st.markdown("### 🏟️ " + ("小組賽分析" if is_cn else "Group Stage Matches"))
+        for match in path['group_matches']:
+            approach = match.get(f'recommended_approach_{sm_lang}',
+                                match.get('recommended_approach_en', ''))
+            col1, col2, col3 = st.columns([2, 2, 3])
+            with col1:
+                st.markdown(f"**Match {match['match']}** vs {match['opponent']}")
+            with col2:
+                st.markdown(f"W: {match['win_prob']:.0%} | D: {match['draw_prob']:.0%} | L: {match['loss_prob']:.0%}")
+            with col3:
+                st.caption(approach)
+
+        # Projected Group Finish
+        finish = path['projected_group_finish']
+        confidence = path['projected_group_finish_confidence']
+        finish_label = "預計小組排名" if is_cn else "Projected Group Finish"
+        st.markdown(f"**{finish_label}**: {finish} ({confidence:.0%})")
+
+        # Knockout Path
+        st.markdown("### 🏆 " + ("淘汰賽路徑" if is_cn else "Knockout Path"))
+        for kp in path['knockout_path']:
+            stage_name = kp['stage'].upper()
+            strategy = kp.get(f'strategy_{sm_lang}', kp.get('strategy_en', ''))
+            key_factor = kp.get('key_factor', '')
+            st.markdown(f"**{stage_name}** vs {kp['opponent_team']} — Win: {kp['win_prob']:.0%}")
+            if key_factor:
+                st.caption(f"Key: {key_factor} | {strategy}")
+
+        # Overall Win Probability
+        st.markdown("### 📊 " + ("奪冠概率" if is_cn else "Overall Win Probability"))
+        st.metric(selected_team, f"{path['overall_win_probability']:.1%}")
+
+        # LightDarkBalance
+        ldb = path.get('light_dark_balance', {})
+        if ldb:
+            st.markdown("### ⚖️ LightDarkBalance")
+            ldb_icon = {"high": "🟢", "medium": "🟡", "low": "🔴"}.get(ldb.get('confidence', ''), "⚪")
+            col_l, col_d, col_ldb = st.columns(3)
+            with col_l:
+                st.metric("Light", f"{ldb.get('light', 0):.2f}")
+            with col_d:
+                st.metric("Dark", f"{ldb.get('dark', 0):.2f}")
+            with col_ldb:
+                st.metric(f"LDB {ldb_icon}", f"{ldb.get('ldb', 0):.3f}")
+
+        # X-Factor Players
+        xfactor = path.get('xfactor_players', [])
+        if xfactor:
+            st.markdown("### ⭐ " + ("X因子球員" if is_cn else "X-Factor Players"))
+            st.markdown(", ".join(xfactor))
+
+        # Critical Risk
+        risk = path.get('critical_risk', '')
+        if risk:
+            st.warning(f"⚠️ {'關鍵風險' if is_cn else 'Critical Risk'}: {risk}")
+
+        # Scenarios
+        best = path.get('best_case_scenario', '')
+        worst = path.get('worst_case_scenario', '')
+        if best or worst:
+            st.markdown("### 🔮 " + ("情景分析" if is_cn else "Scenarios"))
+            col_best, col_worst = st.columns(2)
+            with col_best:
+                st.success(f"✅ {'最佳' if is_cn else 'Best'}: {best}")
+            with col_worst:
+                st.error(f"❌ {'最差' if is_cn else 'Worst'}: {worst}")
+
+        # Social Media Export
+        st.markdown("---")
+        st.markdown("### 📱 " + ("社交媒體內容" if is_cn else "Social Media Content"))
+
+        if _SOCIAL_GEN_AVAILABLE:
+            from wc2026_social_media_generator import SocialMediaGenerator
+            sm_gen = SocialMediaGenerator()
+
+            spotlight = sm_gen.generate_team_spotlight(selected_team, sm_lang)
+            path_pred = sm_gen.generate_path_prediction(selected_team, sm_lang)
+
+            tab1, tab2 = st.tabs(["Spotlight", "Path Prediction" if not is_cn else "路徑預測"])
+            with tab1:
+                st.markdown(f"**Short (≤280 chars):**")
+                st.code(spotlight['short'], language=None)
+                st.markdown(f"**Long (≤1000 chars):**")
+                st.code(spotlight['long'], language=None)
+                st.markdown(f"**Hashtags:** {' '.join(spotlight['hashtags'])}")
+
+            with tab2:
+                st.markdown(f"**Short:**")
+                st.code(path_pred['short'], language=None)
+                st.markdown(f"**Long:**")
+                st.code(path_pred['long'], language=None)
+                st.markdown(f"**Hashtags:** {' '.join(path_pred['hashtags'])}")
+
+        # Formula Explanation (collapsible)
+        with st.expander("📖 " + ("公式原理" if is_cn else "How It Works")):
+            st.markdown(path_gen.explain_formula_human_readable(sm_lang))
 
 if __name__ == "__main__":
     main()
