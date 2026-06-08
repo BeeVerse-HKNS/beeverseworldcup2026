@@ -671,6 +671,149 @@ def show_monetization_guide():
             st.markdown(f"- {item}")
         st.divider()
 
+def show_engagement_gate():
+    """Engagement gate: Like + Share + Subscribe to enter (replaces registration)"""
+    lang = init_language()
+    theme = init_theme()
+    apply_custom_css(lang, theme)
+    tokens = get_design_tokens(lang, theme)
+    is_cn = APP_VERSION == 'china'
+
+    # Initialize session state
+    for key in ['engagement_like', 'engagement_share', 'engagement_subscribe']:
+        if key not in st.session_state:
+            st.session_state[key] = False
+
+    # Title
+    st.markdown(f"""
+    <div style="text-align: center; padding: 2rem 1rem;">
+        <h1>🏆 World Cup 2026 AI Predictor</h1>
+        <p style="font-size: 1.3rem; color: {tokens['text_secondary']};">
+            {'免费使用 — 只需支持我们！' if is_cn else 'Free access — just support us!'}
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Share text
+    share_url = "https://beeverse-wc2026-international.streamlit.app/"
+    share_text_en = "🏆 Check out this AI World Cup 2026 Predictor! 17 factors, 5000+ simulations, every team's path analyzed. Free to use! 🔮⚽ #WorldCup2026 #AIPrediction"
+    share_text_cn = "🏆 2026世界杯AI预测器！17个因素、5000+次模拟、每支球队路径分析。免费使用！🔮⚽ #世界杯2026 #AI预测"
+    share_text_tw = "🏆 2026世界盃AI預測器！17個因素、5000+次模擬、每支球隊路徑分析。免費使用！🔮⚽ #世界盃2026 #AI預測"
+    share_text = share_text_cn if is_cn else share_text_en
+    encoded_share = __import__('urllib.parse').quote(share_text)
+
+    # Step 1: Like
+    st.markdown("### 👍 " + ("第一步：点赞" if is_cn else "Step 1: Like us"))
+    like_cols = st.columns(4 if not is_cn else 3)
+    like_platforms = [
+        ("Twitter/X", f"https://twitter.com/intent/like?tweet_id=placeholder"),
+        ("Facebook", f"https://www.facebook.com/"),
+        ("Weibo", f"https://weibo.com/"),
+        ("Douyin", f"https://www.douyin.com/"),
+    ] if not is_cn else [
+        ("微博 Weibo", f"https://weibo.com/"),
+        ("抖音 Douyin", f"https://www.douyin.com/"),
+        ("微信 WeChat", f"https://weixin.qq.com/"),
+    ]
+    for i, (name, url) in enumerate(like_platforms):
+        with like_cols[i]:
+            if st.button(f"👍 {name}", key=f"like_{name}"):
+                st.session_state.engagement_like = True
+                st.rerun()
+
+    if st.session_state.engagement_like:
+        st.markdown(f'<p style="color: #4CAF50; font-weight: bold;">✅ {"已点赞！" if is_cn else "Liked!"}</p>', unsafe_allow_html=True)
+
+    st.divider()
+
+    # Step 2: Share
+    st.markdown("### 📤 " + ("第二步：分享" if is_cn else "Step 2: Share with friends"))
+    share_cols = st.columns(4 if not is_cn else 3)
+    share_platforms = [
+        ("Twitter/X", f"https://twitter.com/intent/tweet?text={encoded_share}&url={share_url}"),
+        ("Facebook", f"https://www.facebook.com/sharer/sharer.php?u={share_url}"),
+        ("WhatsApp", f"https://wa.me/?text={encoded_share}%20{share_url}"),
+        ("WeChat", None),  # WeChat needs copy link
+    ] if not is_cn else [
+        ("微博 Weibo", f"https://service.weibo.com/share/share.php?title={encoded_share}&url={share_url}"),
+        ("微信 WeChat", None),
+        ("抖音 Douyin", None),
+    ]
+    for i, (name, url) in enumerate(share_platforms):
+        with share_cols[i]:
+            if url:
+                st.markdown(f'<a href="{url}" target="_blank" rel="noopener noreferrer" style="text-decoration:none;"><button style="background:{tokens["primary"]};color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:14px;width:100%;">📤 {name}</button></a>', unsafe_allow_html=True)
+            else:
+                # Copy link for WeChat
+                st.markdown(f'<button onclick="navigator.clipboard.writeText(\'{share_text} {share_url}\');this.textContent=\'✅ Copied!\'" style="background:{tokens["primary"]};color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:14px;width:100%;">📤 {name}</button>', unsafe_allow_html=True)
+            if st.button(f"✓ {name}", key=f"share_{name}"):
+                st.session_state.engagement_share = True
+                st.rerun()
+
+    if st.session_state.engagement_share:
+        st.markdown(f'<p style="color: #4CAF50; font-weight: bold;">✅ {"已分享！" if is_cn else "Shared!"}</p>', unsafe_allow_html=True)
+
+    st.divider()
+
+    # Step 3: Subscribe
+    st.markdown("### 🔔 " + ("第三步：关注" if is_cn else "Step 3: Subscribe/Follow"))
+    sub_cols = st.columns(4 if not is_cn else 3)
+    sub_platforms = [
+        ("Twitter/X", "https://twitter.com/"),
+        ("YouTube", "https://www.youtube.com/"),
+        ("Facebook", "https://www.facebook.com/"),
+        ("Instagram", "https://www.instagram.com/"),
+    ] if not is_cn else [
+        ("微博 Weibo", "https://weibo.com/"),
+        ("抖音 Douyin", "https://www.douyin.com/"),
+        ("微信 WeChat", "https://weixin.qq.com/"),
+    ]
+    for i, (name, url) in enumerate(sub_platforms):
+        with sub_cols[i]:
+            if st.button(f"🔔 {name}", key=f"sub_{name}"):
+                st.session_state.engagement_subscribe = True
+                st.rerun()
+
+    if st.session_state.engagement_subscribe:
+        st.markdown(f'<p style="color: #4CAF50; font-weight: bold;">✅ {"已关注！" if is_cn else "Subscribed!"}</p>', unsafe_allow_html=True)
+
+    st.divider()
+
+    # Enter button
+    all_done = st.session_state.engagement_like and st.session_state.engagement_share and st.session_state.engagement_subscribe
+
+    if all_done:
+        if st.button("✅ " + ("进入应用" if is_cn else "Enter the App"), type="primary", use_container_width=True, key="enter_app"):
+            st.session_state.registered = True
+            st.rerun()
+    else:
+        remaining = []
+        if not st.session_state.engagement_like:
+            remaining.append("👍 " + ("点赞" if is_cn else "Like"))
+        if not st.session_state.engagement_share:
+            remaining.append("📤 " + ("分享" if is_cn else "Share"))
+        if not st.session_state.engagement_subscribe:
+            remaining.append("🔔 " + ("关注" if is_cn else "Subscribe"))
+        st.info("📌 " + ("请完成以下步骤：" if is_cn else "Please complete: ") + " | ".join(remaining))
+        st.button("✅ " + ("进入应用" if is_cn else "Enter the App"), disabled=True, use_container_width=True, key="enter_app_disabled")
+
+    # Language selector in sidebar
+    with st.sidebar:
+        st.markdown(f"### {t('language') if 't' in dir() else 'Language'}")
+        available_langs = get_available_languages(APP_VERSION)
+        lang_options = list(available_langs.keys())
+        lang_labels = [available_langs[l] for l in lang_options]
+        current_idx = lang_options.index(lang) if lang in lang_options else 0
+        selected_lang_label = st.selectbox(
+            "Language",
+            lang_labels,
+            index=current_idx,
+            label_visibility="collapsed"
+        )
+        selected_lang = lang_options[lang_labels.index(selected_lang_label)]
+        if selected_lang != lang:
+            set_language(selected_lang)
+
 def show_registration():
     lang = init_language()
     theme = init_theme()
@@ -835,7 +978,7 @@ def main():
         st.session_state.user_jurisdiction = 'other'
 
     if not st.session_state.registered:
-        show_registration()
+        show_engagement_gate()
         return
 
     apply_custom_css(lang, theme)
