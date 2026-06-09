@@ -743,10 +743,10 @@ def show_engagement_gate():
     for i, (name, url) in enumerate(share_platforms):
         with share_cols[i]:
             if url:
-                st.markdown(f'<a href="{url}" target="_blank" rel="noopener noreferrer" style="text-decoration:none;"><button style="background:{tokens["primary"]};color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:14px;width:100%;">📤 {name}</button></a>', unsafe_allow_html=True)
+                st.markdown(f'<a href="{url}" target="_blank" rel="noopener noreferrer" style="text-decoration:none;"><button style="background:{tokens["primary_color"]};color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:14px;width:100%;">📤 {name}</button></a>', unsafe_allow_html=True)
             else:
                 # Copy link for WeChat
-                st.markdown(f'<button onclick="navigator.clipboard.writeText(\'{share_text} {share_url}\');this.textContent=\'✅ Copied!\'" style="background:{tokens["primary"]};color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:14px;width:100%;">📤 {name}</button>', unsafe_allow_html=True)
+                st.markdown(f'<button onclick="navigator.clipboard.writeText(\'{share_text} {share_url}\');this.textContent=\'✅ Copied!\'" style="background:{tokens["primary_color"]};color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:14px;width:100%;">📤 {name}</button>', unsafe_allow_html=True)
             if st.button(f"✓ {name}", key=f"share_{name}"):
                 st.session_state.engagement_share = True
                 st.rerun()
