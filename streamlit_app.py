@@ -33,6 +33,18 @@ try:
     _SOCIAL_GEN_AVAILABLE = True
 except ImportError:
     _SOCIAL_GEN_AVAILABLE = False
+
+try:
+    from wc2026_group_combinations import GroupCombinationEngine
+    _GROUP_COMBO_AVAILABLE = True
+except ImportError:
+    _GROUP_COMBO_AVAILABLE = False
+
+try:
+    from wc2026_deep_research import get_research_summary, apply_research_to_engine
+    _DEEP_RESEARCH_AVAILABLE = True
+except ImportError:
+    _DEEP_RESEARCH_AVAILABLE = False
 from languages import LANGUAGES, LANGUAGE_NAMES, get_text, get_language_name, get_available_languages, get_default_language
 from player_translations import get_player_name, get_team_name
 from user_registration_db import save_registration, get_registration_count
@@ -1055,7 +1067,8 @@ def main():
             t('news_page'),
             t('xfactor_page'),
             t('team_squads_page'),
-            '🗺️ ' + ('球隊路徑策略' if APP_VERSION == 'china' else 'Team Path Strategy')
+            '🗺️ ' + ('球隊路徑策略' if APP_VERSION == 'china' else 'Team Path Strategy'),
+            '🧩 ' + ('小組組合分析' if APP_VERSION == 'china' else 'Group Combinations'),
         ]
         page = st.radio(t('navigation'), pages)
 
@@ -1121,6 +1134,8 @@ def main():
             show_team_squads()
         elif page == '🗺️ ' + ('球隊路徑策略' if APP_VERSION == 'china' else 'Team Path Strategy'):
             show_team_path_strategy()
+        elif page == '🧩 ' + ('小組組合分析' if APP_VERSION == 'china' else 'Group Combinations'):
+            show_group_combinations()
     except Exception as e:
         st.error(f"❌ {t('page_error')}: {str(e)}")
         st.info(t('try_refresh'))
@@ -1152,9 +1167,9 @@ def show_methodology():
 
     st.title("🔬 " + ("運作原理" if is_cn else "How Our AI Predicts the World Cup"))
 
-    st.markdown(("我們的模型分析 **17 個因素**，分為 2 大類別，預測比賽結果。\n每次預測運行 **5,000+ 次** 蒙特卡洛模擬。"
+    st.markdown(("我們的模型分析 **17+1 個因素**，分為 2 大類別，預測比賽結果。\n每次預測運行 **5,000+ 次** 蒙特卡洛模擬。"
                  if is_cn else
-                 "Our model analyzes **17 factors** across 2 categories to predict match outcomes.\nWe run **5,000+ Monte Carlo simulations** for each prediction."))
+                 "Our model analyzes **17+1 factors** across 2 categories to predict match outcomes.\nWe run **5,000+ Monte Carlo simulations** for each prediction."))
 
     st.divider()
 
@@ -1206,7 +1221,7 @@ def show_methodology():
 
     if is_cn:
         st.markdown("""對於每場比賽，我們：
-1. 為兩支球隊評分所有 17 個因素
+1. 為兩支球隊評分所有 17+1 個因素
 2. 運行 5,000 次模擬比賽
 3. 計算每支球隊獲勝的次數
 4. 將百分比作為概率報告
@@ -1249,7 +1264,7 @@ def show_home():
     tokens = get_design_tokens(lang, theme)
 
     st.title("🏆 " + ("2026 世界盃 AI 預測" if is_cn else "World Cup 2026 AI Predictor"))
-    st.caption("Formula V11.1 — 17 Dimensions × 3 EmoGlyphPlay Engines × Dynamic Market Intelligence")
+    st.caption("Formula V12 — 17+1 Dimensions × 3 EmoGlyphPlay Engines × Dynamic Market Intelligence")
 
     # Quick Stats Row
     st.markdown("### 📊 " + ("快速統計" if is_cn else "Quick Stats"))
@@ -1688,6 +1703,44 @@ def show_match_prediction():
                 # Plain text summary
                 env_advantage = home_team if (heat_h + rec_h) > (heat_a + rec_a) else away_team
                 st.info(f"💡 {'環境因素傾向於' if is_cn else 'Environmental factors favor'} **{env_advantage}**")
+
+                # Defensive Counter-Attack Advantage
+                if _V11_AVAILABLE:
+                    try:
+                        from formula_v11_emoglyph import TEAM_STYLE_CLASSIFICATION
+                        home_style = TEAM_STYLE_CLASSIFICATION.get(home_team, "balanced")
+                        away_style = TEAM_STYLE_CLASSIFICATION.get(away_team, "balanced")
+
+                        style_names = {
+                            "defensive_counter": ("防守反擊" if is_cn else "Defensive Counter"),
+                            "attacking_possession": ("進攻控球" if is_cn else "Attacking Possession"),
+                            "balanced": ("均衡" if is_cn else "Balanced"),
+                        }
+
+                        st.markdown(f"**🛡️ {'戰術風格' if is_cn else 'Tactical Style'}**")
+                        style_col1, style_col2 = st.columns(2)
+                        with style_col1:
+                            st.markdown(f"{home_display}: {style_names.get(home_style, home_style)}")
+                        with style_col2:
+                            st.markdown(f"{away_display}: {style_names.get(away_style, away_style)}")
+
+                        # Check if there's a defensive advantage in extreme conditions
+                        v11 = load_v11_engine()
+                        def_bonus_h = v11.score_defensive_counter_advantage(home_team, away_team, {'stage': 'group', 'venue_wbgt': 30})
+                        def_bonus_a = v11.score_defensive_counter_advantage(away_team, home_team, {'stage': 'group', 'venue_wbgt': 30})
+
+                        if abs(def_bonus_h) > 0.01 or abs(def_bonus_a) > 0.01:
+                            if def_bonus_h > def_bonus_a:
+                                adv_team = home_display
+                                adv_pct = f"+{def_bonus_h:.0%}"
+                                adv_reason = ("在高溫下防守反擊佔優" if is_cn else "defensive counter advantage in heat")
+                            else:
+                                adv_team = away_display
+                                adv_pct = f"+{def_bonus_a:.0%}"
+                                adv_reason = ("在高溫下防守反擊佔優" if is_cn else "defensive counter advantage in heat")
+                            st.info(f"🛡️ **{adv_team}** {adv_pct} {adv_reason}")
+                    except Exception:
+                        pass
             except Exception as e:
                 st.caption(f"Environmental data unavailable: {e}")
         else:
@@ -2303,7 +2356,7 @@ def show_team_squads():
                 st.plotly_chart(fig_player, width='stretch')
 
 def show_extreme_environment():
-    """V11.1 Extreme Environment + LightDarkBalance Analysis Page"""
+    """V12 Extreme Environment + LightDarkBalance Analysis Page"""
     is_cn = APP_VERSION == 'china'
     
     if not v11_engine:
@@ -2311,7 +2364,7 @@ def show_extreme_environment():
         return
     
     st.title("🌡️ " + ("極端環境 × 正暗平衡分析" if is_cn else "Extreme Environment × LightDarkBalance"))
-    st.caption("Formula V11.1 — 17 Dimensions × 3 EmoGlyphPlay Engines" if not is_cn else "Formula V11.1 — 17 維度 × 3 EmoGlyphPlay 引擎")
+    st.caption("Formula V12 — 17+1 Dimensions × 3 EmoGlyphPlay Engines" if not is_cn else "Formula V12 — 17+1 維度 × 3 EmoGlyphPlay 引擎")
     
     from formula_v11_emoglyph import WC2026_GROUPS, ELO_RATINGS
     from wc2026_venue_data import VENUES, get_wbgt_risk, get_travel_fatigue
@@ -2452,8 +2505,8 @@ def show_team_path_strategy():
         return
 
     st.title("🗺️ " + ("球隊路徑策略分析" if is_cn else "Team Path Strategy"))
-    st.caption("Formula V11.1 — 17 Dimensions × 3 EmoGlyphPlay Engines × 48-Team Structural Advantage" if not is_cn
-               else "Formula V11.1 — 17 維度 × 3 EmoGlyphPlay 引擎 × 48 隊結構優勢")
+    st.caption("Formula V12 — 17+1 Dimensions × 3 EmoGlyphPlay Engines × 48-Team Structural Advantage" if not is_cn
+               else "Formula V12 — 17+1 維度 × 3 EmoGlyphPlay 引擎 × 48 隊結構優勢")
 
     from formula_v11_emoglyph import WC2026_GROUPS
     from wc2026_team_path_generator import TeamPathGenerator
@@ -2599,6 +2652,230 @@ def show_team_path_strategy():
         # Formula Explanation (collapsible)
         with st.expander("📖 " + ("公式原理" if is_cn else "How It Works")):
             st.markdown(path_gen.explain_formula_human_readable(sm_lang))
+
+def show_group_combinations():
+    """Group Combinations page — all 16 result patterns, 3rd-place projection, convergence"""
+    is_cn = APP_VERSION == 'china'
+
+    st.title("🧩 " + ("小組組合分析" if is_cn else "Group Stage Combinations"))
+    st.caption("Formula V12 — 48 Teams × 16 Result Patterns × 3rd-Place Advancement × 10K Monte Carlo")
+
+    if not _GROUP_COMBO_AVAILABLE:
+        st.error("Group Combination Engine not available" if not is_cn else "小組組合引擎未載入")
+        return
+
+    from wc2026_group_combinations import GroupCombinationEngine
+    from formula_v11_emoglyph import WC2026_GROUPS, TEAM_STYLE_CLASSIFICATION
+
+    @st.cache_resource
+    def load_combo_engine():
+        return GroupCombinationEngine()
+
+    combo = load_combo_engine()
+
+    # Build team list
+    all_teams = []
+    for teams in WC2026_GROUPS.values():
+        all_teams.extend(teams)
+
+    # Tabs for different views
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "🎯 " + ("球隊組合" if is_cn else "Team Combinations"),
+        "🥉 " + ("第三名晉級" if is_cn else "3rd-Place Advancement"),
+        "🛡️ " + ("防守反擊優勢" if is_cn else "Defensive Advantage"),
+        "📊 " + ("收斂測試" if is_cn else "Convergence Test"),
+    ])
+
+    with tab1:
+        selected_team = st.selectbox(
+            "Select Team" if not is_cn else "選擇球隊",
+            all_teams,
+            index=all_teams.index("France") if "France" in all_teams else 0,
+            key="combo_team_select"
+        )
+
+        if st.button("🔍 " + ("分析組合" if is_cn else "Analyze Combinations"), key="combo_analyze_btn"):
+            with st.spinner("Calculating combinations..." if not is_cn else "正在計算組合..."):
+                combos = combo.generate_team_combinations(selected_team)
+                six_pts = combo.detect_six_points_after_two(selected_team)
+                must_win = combo.detect_must_win_match3(selected_team)
+                rec = combo.project_strategic_recommendation(selected_team, 'zh_tw' if is_cn else 'en')
+
+            # Most likely patterns
+            st.markdown("### 📋 " + ("結果模式概率" if is_cn else "Result Pattern Probabilities"))
+            sorted_combos = sorted(combos.items(), key=lambda x: x[1], reverse=True)
+
+            for pattern, prob in sorted_combos[:8]:
+                pts_map = {"W": 3, "D": 1, "L": 0}
+                if pattern == "WW-":
+                    points = 6
+                    desc = ("✅ 6分已定，可輪換休息！" if is_cn else "6pts secured, can rotate & rest!")
+                else:
+                    points = sum(pts_map.get(c, 0) for c in pattern)
+                    if points >= 7:
+                        desc = ("✅ 穩定晉級" if is_cn else "Safe advancement")
+                    elif points >= 4:
+                        desc = ("⚠️ 邊緣位置" if is_cn else "Borderline position")
+                    elif points >= 3:
+                        desc = ("🟡 第三名候選" if is_cn else "3rd-place candidate")
+                    else:
+                        desc = ("❌ 可能淘汰" if is_cn else "Likely eliminated")
+
+                bar_pct = int(prob * 100)
+                st.markdown(f"**{pattern}** ({points}pts) — {prob:.1%} {desc}")
+                st.progress(min(1.0, prob), text=f"{pattern}: {prob:.1%}")
+
+            # 6-points-after-2 detection
+            st.markdown("### 🔑 " + ("6分戰略優勢" if is_cn else "6-Point Strategic Advantage"))
+            if six_pts['probability'] > 0.3:
+                st.success(f"✅ {six_pts['probability']:.1%} " + ("概率可在前2場獲6分" if is_cn else "chance of 6 points after 2 matches"))
+            else:
+                st.warning(f"⚠️ {six_pts['probability']:.1%} " + ("概率可在前2場獲6分" if is_cn else "chance of 6 points after 2 matches"))
+            st.caption(six_pts.get('implication', ''))
+
+            # Must-win match 3
+            st.markdown("### ⚡ " + ("必勝第三場" if is_cn else "Must-Win Match 3"))
+            if must_win['must_win_probability'] > 0.2:
+                st.error(f"🔥 {must_win['must_win_probability']:.1%} " +
+                         ("概率第三場必須贏！" if is_cn else "chance match 3 is MUST-WIN!"))
+            else:
+                st.info(f"ℹ️ {must_win['must_win_probability']:.1%} " +
+                        ("概率第三場必須贏" if is_cn else "chance match 3 is must-win"))
+            if must_win.get('match3_opponent'):
+                st.caption(("第三場對手" if is_cn else "Match 3 opponent") + f": {must_win['match3_opponent']}")
+
+            # Strategic recommendation
+            st.markdown("### 🧠 " + ("戰略建議" if is_cn else "Strategic Recommendation"))
+            st.info(rec.get('recommendation', ''))
+
+    with tab2:
+        st.markdown("### 🥉 " + ("第三名晉級預測" if is_cn else "3rd-Place Advancement Projection"))
+
+        if st.button("🔮 " + ("預測第三名晉級" if is_cn else "Project 3rd-Place Advancement"), key="third_place_btn"):
+            with st.spinner("Simulating group stages..." if not is_cn else "正在模擬小組賽..."):
+                third_place = combo.project_third_place_rankings()
+
+            st.markdown("#### " + ("晉級的8支第三名球隊" if is_cn else "Top 8 3rd-Place Teams Advancing"))
+            for i, team_data in enumerate(third_place[:8], 1):
+                team_name = team_data['team']
+                pts = team_data['points']
+                gd = team_data['goal_difference']
+                style = TEAM_STYLE_CLASSIFICATION.get(team_name, "balanced")
+                style_icon = {"defensive_counter": "🛡️", "attacking_possession": "⚔️", "balanced": "⚖️"}.get(style, "⚖️")
+
+                st.markdown(f"**{i}. {style_icon} {team_name}** — {pts:.1f}pts, GD: {gd:+.1f}")
+
+            st.markdown("#### " + ("被淘汰的第三名球隊" if is_cn else "3rd-Place Teams Eliminated"))
+            for team_data in third_place[8:]:
+                team_name = team_data['team']
+                pts = team_data['points']
+                gd = team_data['goal_difference']
+                st.markdown(f"❌ {team_name} — {pts:.1f}pts, GD: {gd:+.1f}")
+
+        # Per-team 3rd-place probability
+        st.markdown("---")
+        st.markdown("#### " + ("單隊第三名晉級概率" if is_cn else "Per-Team 3rd-Place Advancement Probability"))
+        tp_team = st.selectbox(
+            "Select Team" if not is_cn else "選擇球隊",
+            all_teams,
+            index=all_teams.index("Morocco") if "Morocco" in all_teams else 0,
+            key="tp_team_select"
+        )
+
+        if st.button("📊 " + ("計算概率" if is_cn else "Calculate Probability"), key="tp_calc_btn"):
+            tp_prob = combo.project_third_place_advancement_probability(tp_team)
+            prob_val = tp_prob.get('advancement_probability', 0)
+
+            if prob_val > 0.5:
+                st.success(f"✅ {tp_team}: {prob_val:.1%} " + ("晉級概率" if is_cn else "advancement probability"))
+            elif prob_val > 0.2:
+                st.warning(f"⚠️ {tp_team}: {prob_val:.1%} " + ("晉級概率" if is_cn else "advancement probability"))
+            else:
+                st.error(f"❌ {tp_team}: {prob_val:.1%} " + ("晉級概率" if is_cn else "advancement probability"))
+
+            if tp_prob.get('r32_opponent'):
+                st.caption(("R32 對手" if is_cn else "R32 Opponent") + f": {tp_prob['r32_opponent']}")
+
+    with tab3:
+        st.markdown("### 🛡️ " + ("防守反擊 vs 進攻控球" if is_cn else "Defensive Counter vs Attacking Possession"))
+
+        if _V11_AVAILABLE:
+            from formula_v11_emoglyph import TEAM_STYLE_CLASSIFICATION
+
+            # Count by style
+            style_counts = {}
+            for team, style in TEAM_STYLE_CLASSIFICATION.items():
+                style_counts[style] = style_counts.get(style, 0) + 1
+
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("🛡️ " + ("防守反擊" if is_cn else "Defensive Counter"), style_counts.get("defensive_counter", 0))
+            with col2:
+                st.metric("⚔️ " + ("進攻控球" if is_cn else "Attacking Possession"), style_counts.get("attacking_possession", 0))
+            with col3:
+                st.metric("⚖️ " + ("均衡" if is_cn else "Balanced"), style_counts.get("balanced", 0))
+
+            st.markdown("#### " + ("極端條件下的優勢" if is_cn else "Advantage in Extreme Conditions"))
+            st.markdown(("| 條件 | 防守反擊 | 進攻控球 | 淨差異 |\n|---|---|---|---|\n| 🌡️ 極端高溫 (WBGT>28°C) | +5% | -5% | 10% |\n| ⛰️ 高海拔 (>1500m) | +3% | -3% | 6% |\n| 🌡️+⛰️ 兩者疊加 | +8% | -8% | 16% |"
+                         if is_cn else
+                         "| Condition | Defensive Counter | Attacking Possession | Net Swing |\n|---|---|---|---|\n| 🌡️ Extreme Heat (WBGT>28°C) | +5% | -5% | 10% |\n| ⛰️ Altitude (>1500m) | +3% | -3% | 6% |\n| 🌡️+⛰️ Both Combined | +8% | -8% | 16% |"))
+
+            # List teams by style
+            for style_name, icon in [("defensive_counter", "🛡️"), ("attacking_possession", "⚔️"), ("balanced", "⚖️")]:
+                teams_in_style = [t for t, s in TEAM_STYLE_CLASSIFICATION.items() if s == style_name]
+                style_label = {"defensive_counter": "防守反擊" if is_cn else "Defensive Counter",
+                              "attacking_possession": "進攻控球" if is_cn else "Attacking Possession",
+                              "balanced": "均衡" if is_cn else "Balanced"}[style_name]
+                with st.expander(f"{icon} {style_label} ({len(teams_in_style)})"):
+                    st.markdown(", ".join(teams_in_style))
+
+    with tab4:
+        st.markdown("### 📊 " + ("蒙特卡洛收斂測試" if is_cn else "Monte Carlo Convergence Test"))
+
+        n_iter = st.selectbox(
+            "Max Iterations" if not is_cn else "最大迭代次數",
+            [1000, 2000, 5000, 10000],
+            index=0,
+            key="convergence_iter"
+        )
+
+        if st.button("🚀 " + ("運行收斂測試" if is_cn else "Run Convergence Test"), key="convergence_btn"):
+            if _V11_AVAILABLE:
+                with st.spinner(f"Running {n_iter} simulations..." if not is_cn else f"正在運行 {n_iter} 次模擬..."):
+                    v11 = load_v11_engine()
+                    convergence = v11.simulate_tournament_convergence(n_max=n_iter)
+
+                # Convergence status
+                status = convergence['convergence_status']
+                status_icon = "✅" if status == "Converged" else "⚠️"
+                st.markdown(f"### {status_icon} {status}")
+                st.caption(convergence.get('convergence_detail', ''))
+
+                # Top teams at each checkpoint
+                st.markdown("#### " + ("各檢查點結果" if is_cn else "Results at Each Checkpoint"))
+                for ck_name, ck_data in convergence.get('checkpoints', {}).items():
+                    stability = ck_data.get('top5_stability', 0)
+                    stab_icon = "🟢" if stability < 0.01 else "🟡" if stability < 0.03 else "🔴"
+                    preds = ck_data.get('predictions', {})
+                    top3 = list(preds.items())[:3]
+                    top3_str = " | ".join([f"{t}: {p.get('win_probability', 0):.1%}" for t, p in top3])
+                    st.markdown(f"**{ck_name} iters** {stab_icon} stability: {stability:.2%} — {top3_str}")
+
+                # Confidence interval
+                ci_data = convergence.get('confidence_intervals', {})
+                if ci_data.get('top_team'):
+                    tt = ci_data['top_team']
+                    st.markdown("#### " + ("95% 信心區間" if is_cn else "95% Confidence Interval"))
+                    st.info(f"**{tt['team']}**: {tt['win_prob']:.1%} ± {tt['ci_95'][1] - tt['win_prob']:.1%}")
+
+                # Upset detection
+                upsets = convergence.get('upset_detection', [])
+                if upsets:
+                    st.markdown("#### " + ("爆冷檢測" if is_cn else "Upset Detection"))
+                    for upset in upsets[:5]:
+                        st.warning(f"🔥 {upset['match']}: Model {upset['model_prob']:.0%} vs Elo {upset['elo_prob']:.0%} (divergence: {upset['divergence']:.0%})")
+            else:
+                st.error("V12 engine not available")
 
 if __name__ == "__main__":
     main()

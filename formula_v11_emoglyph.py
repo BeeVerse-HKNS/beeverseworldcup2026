@@ -37,7 +37,7 @@ Tournament Format (2026):
     - Knockout: R32 -> R16 -> QF -> SF -> Final
     - 104 total matches over 39 days
 
-Version: V11.1
+Version: V12
 Author: EmoGlyph Formula Thinking Engine
 """
 
@@ -102,6 +102,7 @@ __all__ = [
     "XFACTOR_DATA",
     "TOURNAMENT_EXPERIENCE",
     "TEAM_REGION_MAP",
+    "TEAM_STYLE_CLASSIFICATION",
     "FormulaV11Engine",
     "quick_test",
 ]
@@ -702,6 +703,41 @@ TEAM_REGION_MAP: Dict[str, str] = {
 
 
 # ===================================================================
+#  TEAM STYLE CLASSIFICATION — defensive_counter / attacking_possession / balanced
+# ===================================================================
+
+TEAM_STYLE_CLASSIFICATION: Dict[str, str] = {
+    # Defensive counter-attack specialists
+    "Morocco": "defensive_counter", "Uruguay": "defensive_counter",
+    "Switzerland": "defensive_counter", "Croatia": "defensive_counter",
+    "Mexico": "defensive_counter", "Japan": "defensive_counter",
+    "South Korea": "defensive_counter", "Saudi Arabia": "defensive_counter",
+    "Colombia": "defensive_counter", "Senegal": "defensive_counter",
+    "Egypt": "defensive_counter", "Paraguay": "defensive_counter",
+    "Scotland": "defensive_counter", "Iran": "defensive_counter",
+    "Tunisia": "defensive_counter", "Panama": "defensive_counter",
+    "Uzbekistan": "defensive_counter", "Jordan": "defensive_counter",
+    "Australia": "defensive_counter", "Haiti": "defensive_counter",
+    "DR Congo": "defensive_counter", "Curacao": "defensive_counter",
+    "South Africa": "defensive_counter",
+    # Attacking possession teams
+    "Brazil": "attacking_possession", "Spain": "attacking_possession",
+    "Argentina": "attacking_possession", "Portugal": "attacking_possession",
+    "Netherlands": "attacking_possession", "Germany": "attacking_possession",
+    "Belgium": "attacking_possession", "Turkey": "attacking_possession",
+    "Ghana": "attacking_possession", "Qatar": "attacking_possession",
+    # Balanced teams
+    "France": "balanced", "England": "balanced", "Italy": "balanced",
+    "USA": "balanced", "Norway": "balanced", "Austria": "balanced",
+    "Sweden": "balanced", "Ivory Coast": "balanced", "Algeria": "balanced",
+    "Czech Republic": "balanced", "Iraq": "balanced",
+    "Bosnia and Herzegovina": "balanced", "New Zealand": "balanced",
+    "Cape Verde": "balanced", "Canada": "balanced",
+    "Ecuador": "balanced",
+}
+
+
+# ===================================================================
 #  FORMULA V11 ENGINE
 # ===================================================================
 
@@ -935,6 +971,53 @@ class FormulaV11Engine:
             + bracket_position_value * 0.25
         )
         return min(1.0, max(0.05, score))
+
+    # ================================================================
+    #  Defensive Counter-Attack Advantage
+    # ================================================================
+
+    def score_defensive_counter_advantage(self, team: str, opponent: str, match_context: dict) -> float:
+        """Defensive counter-attack advantage in extreme conditions.
+
+        Defensive-counter teams gain a bonus in extreme heat and at altitude,
+        while attacking-possession teams suffer a penalty. When a
+        defensive_counter team faces an attacking_possession team in extreme
+        conditions, the net swing is doubled (both bonuses/penalties apply).
+
+        Returns:
+            float: bonus/penalty to multiply final probability by (1 + bonus).
+        """
+        team_style = TEAM_STYLE_CLASSIFICATION.get(team, "balanced")
+        opponent_style = TEAM_STYLE_CLASSIFICATION.get(opponent, "balanced")
+
+        wbgt = match_context.get("venue_wbgt", 0.0)
+        altitude = match_context.get("venue_altitude", 0.0)
+
+        extreme_heat = wbgt > 28.0
+        at_altitude = altitude > 1500.0
+
+        bonus = 0.0
+
+        if extreme_heat:
+            if team_style == "defensive_counter":
+                bonus += 0.05
+            elif team_style == "attacking_possession":
+                bonus -= 0.05
+
+        if at_altitude:
+            if team_style == "defensive_counter":
+                bonus += 0.03
+            elif team_style == "attacking_possession":
+                bonus -= 0.03
+
+        # Double the net swing when defensive_counter faces attacking_possession
+        # in extreme conditions (both teams get their respective bonuses/penalties)
+        if extreme_heat or at_altitude:
+            if (team_style == "defensive_counter" and opponent_style == "attacking_possession") or \
+               (team_style == "attacking_possession" and opponent_style == "defensive_counter"):
+                bonus *= 2.0
+
+        return bonus
 
     # ================================================================
     #  Helper: Calculate all 17 dimensions for one team
@@ -1172,6 +1255,12 @@ class FormulaV11Engine:
         p_final_a = p_base_a * (1 + ldb_a["ldb"] * alpha_ldb) * suntzu_a["suntzu"]
         p_final_b = p_base_b * (1 + ldb_b["ldb"] * alpha_ldb) * suntzu_b["suntzu"]
 
+        # Defensive counter-attack advantage modifier
+        defensive_bonus_a = self.score_defensive_counter_advantage(team_a, team_b, match_context)
+        defensive_bonus_b = self.score_defensive_counter_advantage(team_b, team_a, match_context)
+        p_final_a *= (1 + defensive_bonus_a)
+        p_final_b *= (1 + defensive_bonus_b)
+
         # Normalize to probabilities
         total = p_final_a + p_final_b
         prob_a = p_final_a / total if total > 0 else 0.5
@@ -1359,6 +1448,205 @@ class FormulaV11Engine:
             if team_b in results:
                 results[team_b][result_key] += 1
         return winners
+
+    # ================================================================
+    #  Monte Carlo Convergence Testing
+    # ================================================================
+
+    def simulate_tournament_convergence(self, n_max: int = 10000, match_context: dict = None) -> dict:
+        """Run Monte Carlo simulations at checkpoints and measure convergence.
+
+        Runs simulations at 4 checkpoints (1K/2K/5K/10K by default), records
+        top-10 win probabilities at each, and computes stability metrics,
+        95% confidence intervals, and upset detections.
+
+        Args:
+            n_max: Maximum number of simulations (default 10000).
+            match_context: Optional context dict passed to predict_match.
+
+        Returns:
+            Convergence report dict with checkpoints, convergence_status,
+            confidence_intervals, and upset_detection.
+        """
+        # Default checkpoints at 10%/20%/50%/100% of n_max
+        default_checkpoints = [1000, 2000, 5000, 10000]
+        if n_max >= 10000:
+            checkpoints_config = default_checkpoints
+        else:
+            # Scale checkpoints proportionally: 10%/20%/50%/100% of n_max
+            checkpoints_config = [
+                max(1, n_max // 10),
+                max(1, n_max // 5),
+                max(1, n_max // 2),
+                n_max,
+            ]
+            # Remove duplicates while preserving order
+            seen = set()
+            unique = []
+            for cp in checkpoints_config:
+                if cp not in seen:
+                    seen.add(cp)
+                    unique.append(cp)
+            checkpoints_config = unique
+
+        # Accumulate results across all simulations
+        results = {
+            team: {"wins": 0, "finals": 0, "semis": 0, "quarters": 0, "r16": 0, "group_advance": 0}
+            for team in ELO_RATINGS
+        }
+
+        # Track match-level model vs Elo probabilities for upset detection
+        # We sample a fixed set of key matchups to compare
+        key_matchups = self._get_key_matchups_for_upset_detection()
+        upset_tracking = {
+            f"{a} vs {b}": {"model_probs": [], "elo_probs": []}
+            for a, b in key_matchups
+        }
+
+        checkpoints_data = {}
+        prev_top5_probs = None
+        sim_count = 0
+
+        for target_n in checkpoints_config:
+            # Run simulations from current count to target
+            while sim_count < target_n:
+                group_results = self._simulate_group_stage(match_context)
+                advancing = self._determine_advancing_teams(group_results)
+                for team in advancing:
+                    if team in results:
+                        results[team]["group_advance"] += 1
+                self._simulate_knockout(advancing, results, match_context)
+                sim_count += 1
+
+            # Record predictions at this checkpoint
+            predictions = {}
+            for team, res in results.items():
+                predictions[team] = {
+                    "win_probability": round(res["wins"] / sim_count, 4),
+                    "final_probability": round(res["finals"] / sim_count, 4),
+                    "semi_probability": round(res["semis"] / sim_count, 4),
+                    "quarter_probability": round(res["quarters"] / sim_count, 4),
+                    "r16_probability": round(res["r16"] / sim_count, 4),
+                    "group_advance_probability": round(res["group_advance"] / sim_count, 4),
+                }
+
+            sorted_preds = dict(
+                sorted(predictions.items(), key=lambda x: x[1]["win_probability"], reverse=True)
+            )
+
+            # Top 10 teams at this checkpoint
+            top10 = dict(list(sorted_preds.items())[:10])
+
+            # Calculate top-5 stability
+            top5_probs = {team: sorted_preds[team]["win_probability"] for team in list(sorted_preds.keys())[:5]}
+
+            if prev_top5_probs is not None:
+                # Max % change among top-5 teams present in both checkpoints
+                max_pct_change = 0.0
+                for team in top5_probs:
+                    if team in prev_top5_probs and prev_top5_probs[team] > 0:
+                        pct_change = abs(top5_probs[team] - prev_top5_probs[team]) / prev_top5_probs[team] * 100
+                        max_pct_change = max(max_pct_change, pct_change)
+                stability = round(max_pct_change, 4)
+            else:
+                stability = None  # No previous checkpoint to compare
+
+            checkpoints_data[str(target_n)] = {
+                "predictions": top10,
+                "top5_stability": stability,
+            }
+
+            prev_top5_probs = top5_probs
+
+        # Determine convergence status
+        # Check stability between last two checkpoints
+        checkpoint_keys = list(checkpoints_data.keys())
+        convergence_status = "Not converged"
+        convergence_detail = ""
+        if len(checkpoint_keys) >= 2:
+            last_stability = checkpoints_data[checkpoint_keys[-1]]["top5_stability"]
+            second_last_key = checkpoint_keys[-2]
+            last_key = checkpoint_keys[-1]
+            if last_stability is not None:
+                if last_stability < 1.0:
+                    convergence_status = "Converged"
+                convergence_detail = f"Change from {second_last_key} to {last_key}: {last_stability:.4f}%"
+
+        # 95% confidence intervals for top team
+        final_preds = checkpoints_data[checkpoint_keys[-1]]["predictions"]
+        top_team_name = list(final_preds.keys())[0]
+        top_team_prob = final_preds[top_team_name]["win_probability"]
+        n_final = int(checkpoint_keys[-1])
+        ci_half = 1.96 * math.sqrt(top_team_prob * (1 - top_team_prob) / n_final)
+        ci_lower = round(max(0.0, top_team_prob - ci_half), 4)
+        ci_upper = round(min(1.0, top_team_prob + ci_half), 4)
+
+        confidence_intervals = {
+            "top_team": {
+                "team": top_team_name,
+                "win_prob": top_team_prob,
+                "ci_95": (ci_lower, ci_upper),
+            }
+        }
+
+        # Upset detection: compare model probability vs Elo-only probability
+        upset_detection = []
+        for a, b in key_matchups:
+            ctx = dict(match_context or {})
+            ctx["stage"] = "group"
+            model_result = self.predict_match(a, b, ctx)
+            model_prob_a = model_result["prob_a_win"]
+
+            # Elo-only probability (standard Elo formula)
+            elo_a = ELO_RATINGS.get(a, 1500)
+            elo_b = ELO_RATINGS.get(b, 1500)
+            elo_prob_a = 1.0 / (1.0 + 10 ** ((elo_b - elo_a) / 400))
+
+            divergence = abs(model_prob_a - elo_prob_a) * 100  # as percentage
+            if divergence > 15:
+                upset_detection.append({
+                    "match": f"{a} vs {b}",
+                    "model_prob": round(model_prob_a, 4),
+                    "elo_prob": round(elo_prob_a, 4),
+                    "divergence": round(divergence, 2),
+                })
+
+        return {
+            "checkpoints": checkpoints_data,
+            "convergence_status": convergence_status,
+            "convergence_detail": convergence_detail,
+            "confidence_intervals": confidence_intervals,
+            "upset_detection": upset_detection,
+        }
+
+    def _get_key_matchups_for_upset_detection(self) -> list:
+        """Return a curated list of key matchups for upset detection.
+
+        Covers cross-tier games where the model's multi-dimensional
+        assessment is most likely to diverge from pure Elo.
+        """
+        return [
+            ("France", "Brazil"),
+            ("Spain", "Germany"),
+            ("England", "Argentina"),
+            ("Portugal", "Netherlands"),
+            ("USA", "Germany"),
+            ("Mexico", "Uruguay"),
+            ("Morocco", "Spain"),
+            ("Japan", "Croatia"),
+            ("South Korea", "Portugal"),
+            ("Australia", "France"),
+            ("Turkey", "Netherlands"),
+            ("Senegal", "England"),
+            ("Canada", "Belgium"),
+            ("Ecuador", "Brazil"),
+            ("Ivory Coast", "Portugal"),
+            ("Ghana", "Uruguay"),
+            ("Norway", "Argentina"),
+            ("Colombia", "France"),
+            ("Switzerland", "Italy"),
+            ("Austria", "Spain"),
+        ]
 
     # ================================================================
     #  Utility: Get team profile
@@ -1557,7 +1845,29 @@ def quick_test():
               f"Final={probs['final_probability']:.1%}, "
               f"Semi={probs['semi_probability']:.1%}")
 
-    # Test 10: Host nation advantage
+    # Test 10: Monte Carlo Convergence Testing
+    print("\n--- Test 10: Monte Carlo Convergence (100/200/500/1000 iterations) ---")
+    convergence = engine.simulate_tournament_convergence(n_max=1000)
+    print(f"  Convergence status: {convergence['convergence_status']}")
+    print(f"  Detail: {convergence['convergence_detail']}")
+    for cp_key, cp_data in convergence["checkpoints"].items():
+        stability = cp_data["top5_stability"]
+        stability_str = f"{stability:.4f}%" if stability is not None else "N/A (first checkpoint)"
+        top3 = list(cp_data["predictions"].items())[:3]
+        top3_str = ", ".join(f"{t}={d['win_probability']:.2%}" for t, d in top3)
+        print(f"  Checkpoint {cp_key:>5s}: stability={stability_str}, top3=[{top3_str}]")
+    ci = convergence["confidence_intervals"]["top_team"]
+    print(f"  Top team: {ci['team']} — win_prob={ci['win_prob']:.2%}, "
+          f"95% CI=({ci['ci_95'][0]:.2%}, {ci['ci_95'][1]:.2%})")
+    if convergence["upset_detection"]:
+        print(f"  Upset detections ({len(convergence['upset_detection'])}):")
+        for upset in convergence["upset_detection"][:5]:
+            print(f"    {upset['match']}: model={upset['model_prob']:.2%}, "
+                  f"elo={upset['elo_prob']:.2%}, divergence={upset['divergence']:.1f}%")
+    else:
+        print("  No upsets detected (>15% divergence from Elo)")
+
+    # Test 11: Host nation advantage
     print("\n--- Test 6: Host Nation Advantage ---")
     for host in ["USA", "Canada", "Mexico"]:
         home_ctx = {"venue_id": "nyc" if host == "USA" else ("toronto" if host == "Canada" else "mexicocity"), "stage": "group"}
@@ -1604,6 +1914,35 @@ def quick_test():
     print("\n" + "=" * 70)
     print("Quick test complete!")
     print("=" * 70)
+
+    # Test 13: Defensive counter-attack advantage
+    print("\n--- Test 9: Defensive Counter-Attack Advantage ---")
+    # Morocco (defensive_counter) vs Spain (attacking_possession) in Houston (WBGT > 30°C)
+    houston_ctx = {"venue_id": "houston", "stage": "group", "venue_wbgt": 31.0, "venue_altitude": 0.0}
+    neutral_ctx = {"venue_id": "nyc", "stage": "group", "venue_wbgt": 22.0, "venue_altitude": 0.0}
+
+    bonus_morocco_houston = engine.score_defensive_counter_advantage("Morocco", "Spain", houston_ctx)
+    bonus_spain_houston = engine.score_defensive_counter_advantage("Spain", "Morocco", houston_ctx)
+    net_swing_houston = bonus_morocco_houston - bonus_spain_houston
+
+    bonus_morocco_neutral = engine.score_defensive_counter_advantage("Morocco", "Spain", neutral_ctx)
+    bonus_spain_neutral = engine.score_defensive_counter_advantage("Spain", "Morocco", neutral_ctx)
+
+    print(f"  Morocco vs Spain in Houston (WBGT=31°C):")
+    print(f"    Morocco bonus: {bonus_morocco_houston:+.2%} (expected ~+10%)")
+    print(f"    Spain penalty: {bonus_spain_houston:+.2%} (expected ~-10%)")
+    print(f"    Net swing:     {net_swing_houston:+.2%} (expected ~20%)")
+    print(f"  Morocco vs Spain in neutral conditions (WBGT=22°C):")
+    print(f"    Morocco bonus: {bonus_morocco_neutral:+.2%} (expected 0%)")
+    print(f"    Spain penalty: {bonus_spain_neutral:+.2%} (expected 0%)")
+
+    # Verify the bonus values
+    assert abs(bonus_morocco_houston - 0.10) < 0.001, f"Morocco bonus should be ~10%, got {bonus_morocco_houston}"
+    assert abs(bonus_spain_houston - (-0.10)) < 0.001, f"Spain penalty should be ~-10%, got {bonus_spain_houston}"
+    assert abs(net_swing_houston - 0.20) < 0.001, f"Net swing should be ~20%, got {net_swing_houston}"
+    assert bonus_morocco_neutral == 0.0, f"Morocco neutral bonus should be 0, got {bonus_morocco_neutral}"
+    assert bonus_spain_neutral == 0.0, f"Spain neutral penalty should be 0, got {bonus_spain_neutral}"
+    print("  All assertions passed!")
 
 
 if __name__ == "__main__":
