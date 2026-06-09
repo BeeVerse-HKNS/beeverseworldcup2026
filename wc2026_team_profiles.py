@@ -51,18 +51,19 @@ ELO_RATINGS = {
 # FIFA rankings (reference: formula_v11_emoglyph.py)
 # ---------------------------------------------------------------------------
 FIFA_RANKINGS = {
-    "Spain": 1, "France": 2, "Argentina": 3, "England": 4, "Brazil": 5,
+    "Argentina": 1, "Spain": 2, "France": 3, "England": 4, "Brazil": 5,
     "Portugal": 6, "Netherlands": 7, "Germany": 8, "Belgium": 9,
-    "Uruguay": 10, "Colombia": 11, "Croatia": 12, "Switzerland": 14,
-    "USA": 15, "Mexico": 16, "Morocco": 18, "Austria": 19, "Turkey": 20,
-    "Norway": 21, "Scotland": 22, "Japan": 23, "South Korea": 24,
-    "Senegal": 25, "Ecuador": 26, "Paraguay": 27, "Ghana": 28,
-    "Australia": 29, "Egypt": 30, "Ivory Coast": 31, "Sweden": 32,
-    "Tunisia": 33, "Algeria": 34, "Iran": 35, "Saudi Arabia": 36,
-    "Qatar": 37, "Bosnia and Herzegovina": 38, "Czech Republic": 39,
-    "Iraq": 40, "DR Congo": 41, "Panama": 42, "Haiti": 43,
-    "New Zealand": 44, "Jordan": 45, "Uzbekistan": 46, "Curacao": 47,
-    "Cape Verde": 48, "South Africa": 49, "Canada": 50,
+    "Uruguay": 10, "Colombia": 11, "Croatia": 12, "Morocco": 13,
+    "Switzerland": 14, "Mexico": 15, "USA": 16, "Senegal": 17,
+    "Japan": 18, "Austria": 19, "Iran": 20, "Norway": 21,
+    "Turkey": 22, "South Korea": 23, "Ecuador": 24, "Ghana": 25,
+    "Canada": 26, "Australia": 27, "Egypt": 28, "Ivory Coast": 29,
+    "Sweden": 30, "Algeria": 31, "Tunisia": 32, "Scotland": 33,
+    "Paraguay": 34, "Saudi Arabia": 35, "Qatar": 36, "Czech Republic": 37,
+    "Bosnia and Herzegovina": 38, "Iraq": 39, "DR Congo": 40,
+    "Panama": 41, "Haiti": 42, "New Zealand": 43, "Jordan": 44,
+    "Uzbekistan": 45, "Curacao": 46, "Cape Verde": 47,
+    "South Africa": 48,
 }
 
 # ---------------------------------------------------------------------------
@@ -94,7 +95,7 @@ TEAM_PROFILES = {
         "coach": {
             "name": "Javier Aguirre",
             "nationality": "Mexican",
-            "age": 66,
+            "age": 67,
             "style": "Pragmatic",
         },
         "formation": "4-3-3",
@@ -124,7 +125,7 @@ TEAM_PROFILES = {
             {"en": "Struggle against possession teams", "簡中": "面对控球型球队吃力", "繁中": "面對控球型球隊吃力"},
         ],
         "style": "defensive_counter",
-        "fifa_ranking": 16,
+        "fifa_ranking": 15,
         "elo_rating": 1800,
     },
 
@@ -162,16 +163,16 @@ TEAM_PROFILES = {
             {"en": "Vulnerable to high press", "簡中": "怕高位逼抢", "繁中": "怕高位逼搶"},
         ],
         "style": "defensive_counter",
-        "fifa_ranking": 49,
+        "fifa_ranking": 48,
         "elo_rating": 1540,
     },
 
     "South Korea": {
         "coach": {
-            "name": "Jurgen Klinsmann",
-            "nationality": "German",
-            "age": 59,
-            "style": "Counter-attacking",
+            "name": "Hong Myung-bo",
+            "nationality": "South Korean",
+            "age": 56,
+            "style": "Pragmatic",
         },
         "formation": "4-2-3-1",
         "main_player": {
@@ -200,7 +201,7 @@ TEAM_PROFILES = {
             {"en": "Midfield creativity gaps", "簡中": "中场创造力不足", "繁中": "中場創造力不足"},
         ],
         "style": "defensive_counter",
-        "fifa_ranking": 24,
+        "fifa_ranking": 23,
         "elo_rating": 1660,
     },
 
@@ -237,7 +238,7 @@ TEAM_PROFILES = {
             {"en": "Squad depth concerns", "簡中": "阵容深度堪忧", "繁中": "陣容深度堪憂"},
         ],
         "style": "balanced",
-        "fifa_ranking": 39,
+        "fifa_ranking": 37,
         "elo_rating": 1600,
     },
 
@@ -278,7 +279,7 @@ TEAM_PROFILES = {
             {"en": "Squad depth beyond first XI", "簡中": "首发之外阵容深度不足", "繁中": "首發之外陣容深度不足"},
         ],
         "style": "balanced",
-        "fifa_ranking": 50,
+        "fifa_ranking": 26,
         "elo_rating": 1620,
     },
 
@@ -354,7 +355,7 @@ TEAM_PROFILES = {
             {"en": "Limited goal-scoring options", "簡中": "进球选择有限", "繁中": "進球選擇有限"},
         ],
         "style": "attacking_possession",
-        "fifa_ranking": 37,
+        "fifa_ranking": 36,
         "elo_rating": 1540,
     },
 
@@ -472,15 +473,15 @@ TEAM_PROFILES = {
             {"en": "Over-reliance on transitions", "簡中": "过度依赖转换进攻", "繁中": "過度依賴轉換進攻"},
         ],
         "style": "defensive_counter",
-        "fifa_ranking": 18,
+        "fifa_ranking": 13,
         "elo_rating": 1780,
     },
 
     "Haiti": {
         "coach": {
-            "name": "Gabriel Calderon",
-            "nationality": "Argentine",
-            "age": 64,
+            "name": "Sebastien Migne",
+            "nationality": "French",
+            "age": 52,
             "style": "Defensive",
         },
         "formation": "5-4-1",
@@ -510,7 +511,7 @@ TEAM_PROFILES = {
             {"en": "Shallow squad", "簡中": "阵容薄弱", "繁中": "陣容薄弱"},
         ],
         "style": "defensive_counter",
-        "fifa_ranking": 43,
+        "fifa_ranking": 42,
         "elo_rating": 1490,
     },
 
@@ -548,7 +549,7 @@ TEAM_PROFILES = {
             {"en": "Goalkeeping inconsistency", "簡中": "门将不稳定", "繁中": "門將不穩定"},
         ],
         "style": "defensive_counter",
-        "fifa_ranking": 22,
+        "fifa_ranking": 33,
         "elo_rating": 1620,
     },
 
@@ -557,10 +558,10 @@ TEAM_PROFILES = {
     # ======================================================================
     "USA": {
         "coach": {
-            "name": "Gregg Berhalter",
-            "nationality": "American",
-            "age": 52,
-            "style": "Positional play",
+            "name": "Mauricio Pochettino",
+            "nationality": "Argentine",
+            "age": 53,
+            "style": "High pressing",
         },
         "formation": "4-3-3",
         "main_player": {
@@ -589,7 +590,7 @@ TEAM_PROFILES = {
             {"en": "Inconsistent against top teams", "簡中": "对阵强队不稳定", "繁中": "對陣強隊不穩定"},
         ],
         "style": "balanced",
-        "fifa_ranking": 15,
+        "fifa_ranking": 16,
         "elo_rating": 1810,
     },
 
@@ -627,7 +628,7 @@ TEAM_PROFILES = {
             {"en": "Goal-scoring inconsistency", "簡中": "进球不稳定", "繁中": "進球不穩定"},
         ],
         "style": "defensive_counter",
-        "fifa_ranking": 27,
+        "fifa_ranking": 34,
         "elo_rating": 1650,
     },
 
@@ -635,7 +636,7 @@ TEAM_PROFILES = {
         "coach": {
             "name": "Tony Popovic",
             "nationality": "Australian",
-            "age": 51,
+            "age": 52,
             "style": "Organized",
         },
         "formation": "4-2-3-1",
@@ -665,7 +666,7 @@ TEAM_PROFILES = {
             {"en": "Squad depth issues", "簡中": "阵容深度问题", "繁中": "陣容深度問題"},
         ],
         "style": "defensive_counter",
-        "fifa_ranking": 29,
+        "fifa_ranking": 27,
         "elo_rating": 1760,
     },
 
@@ -703,7 +704,7 @@ TEAM_PROFILES = {
             {"en": "Vulnerable on transitions", "簡中": "转换中脆弱", "繁中": "轉換中脆弱"},
         ],
         "style": "attacking_possession",
-        "fifa_ranking": 20,
+        "fifa_ranking": 22,
         "elo_rating": 1750,
     },
 
@@ -751,10 +752,10 @@ TEAM_PROFILES = {
 
     "Curacao": {
         "coach": {
-            "name": "Remko Bicentini",
-            "nationality": "Curacaoan",
-            "age": 56,
-            "style": "Defensive",
+            "name": "Dick Advocaat",
+            "nationality": "Dutch",
+            "age": 78,
+            "style": "Pragmatic",
         },
         "formation": "5-3-2",
         "main_player": {
@@ -783,7 +784,7 @@ TEAM_PROFILES = {
             {"en": "Vulnerable against quality opposition", "簡中": "面对强队脆弱", "繁中": "面對強隊脆弱"},
         ],
         "style": "defensive_counter",
-        "fifa_ranking": 47,
+        "fifa_ranking": 46,
         "elo_rating": 1460,
     },
 
@@ -821,7 +822,7 @@ TEAM_PROFILES = {
             {"en": "Occasional tactical indiscipline", "簡中": "偶尔战术纪律松散", "繁中": "偶爾戰術紀律鬆散"},
         ],
         "style": "balanced",
-        "fifa_ranking": 31,
+        "fifa_ranking": 29,
         "elo_rating": 1700,
     },
 
@@ -859,7 +860,7 @@ TEAM_PROFILES = {
             {"en": "Limited creative options", "簡中": "创造力选择有限", "繁中": "創造力選擇有限"},
         ],
         "style": "balanced",
-        "fifa_ranking": 26,
+        "fifa_ranking": 24,
         "elo_rating": 1710,
     },
 
@@ -939,7 +940,7 @@ TEAM_PROFILES = {
             {"en": "Set-piece defending", "簡中": "定位球防守", "繁中": "定位球防守"},
         ],
         "style": "defensive_counter",
-        "fifa_ranking": 23,
+        "fifa_ranking": 18,
         "elo_rating": 1790,
     },
 
@@ -977,7 +978,7 @@ TEAM_PROFILES = {
             {"en": "Struggle against high press", "簡中": "怕高位逼抢", "繁中": "怕高位逼搶"},
         ],
         "style": "balanced",
-        "fifa_ranking": 32,
+        "fifa_ranking": 30,
         "elo_rating": 1730,
     },
 
@@ -1015,7 +1016,7 @@ TEAM_PROFILES = {
             {"en": "Goal-scoring inconsistency", "簡中": "进球不稳定", "繁中": "進球不穩定"},
         ],
         "style": "defensive_counter",
-        "fifa_ranking": 33,
+        "fifa_ranking": 32,
         "elo_rating": 1580,
     },
 
@@ -1062,10 +1063,10 @@ TEAM_PROFILES = {
 
     "Egypt": {
         "coach": {
-            "name": "Rui Vitoria",
-            "nationality": "Portuguese",
-            "age": 54,
-            "style": "Counter-attacking",
+            "name": "Hossam Hassan",
+            "nationality": "Egyptian",
+            "age": 59,
+            "style": "Pragmatic",
         },
         "formation": "4-2-3-1",
         "main_player": {
@@ -1094,7 +1095,7 @@ TEAM_PROFILES = {
             {"en": "Midfield creativity gaps", "簡中": "中场创造力不足", "繁中": "中場創造力不足"},
         ],
         "style": "defensive_counter",
-        "fifa_ranking": 30,
+        "fifa_ranking": 28,
         "elo_rating": 1640,
     },
 
@@ -1132,16 +1133,16 @@ TEAM_PROFILES = {
             {"en": "Vulnerable to pace in wide areas", "簡中": "边路怕速度", "繁中": "邊路怕速度"},
         ],
         "style": "defensive_counter",
-        "fifa_ranking": 35,
+        "fifa_ranking": 20,
         "elo_rating": 1590,
     },
 
     "New Zealand": {
         "coach": {
-            "name": "Danny Hay",
-            "nationality": "New Zealander",
-            "age": 49,
-            "style": "Pragmatic",
+            "name": "Darren Bazeley",
+            "nationality": "English",
+            "age": 53,
+            "style": "Organized",
         },
         "formation": "4-4-2",
         "main_player": {
@@ -1170,7 +1171,7 @@ TEAM_PROFILES = {
             {"en": "Shallow talent pool", "簡中": "人才储备浅", "繁中": "人才儲備淺"},
         ],
         "style": "balanced",
-        "fifa_ranking": 44,
+        "fifa_ranking": 43,
         "elo_rating": 1500,
     },
 
@@ -1212,7 +1213,7 @@ TEAM_PROFILES = {
             {"en": "Striker position less prolific", "簡中": "前锋位置进球率偏低", "繁中": "前鋒位置進球率偏低"},
         ],
         "style": "attacking_possession",
-        "fifa_ranking": 1,
+        "fifa_ranking": 2,
         "elo_rating": 2050,
     },
 
@@ -1250,7 +1251,7 @@ TEAM_PROFILES = {
             {"en": "Struggle against physical teams", "簡中": "面对身体型球队吃力", "繁中": "面對身體型球隊吃力"},
         ],
         "style": "balanced",
-        "fifa_ranking": 48,
+        "fifa_ranking": 47,
         "elo_rating": 1470,
     },
 
@@ -1288,7 +1289,7 @@ TEAM_PROFILES = {
             {"en": "Struggle against high press", "簡中": "怕高位逼抢", "繁中": "怕高位逼搶"},
         ],
         "style": "defensive_counter",
-        "fifa_ranking": 36,
+        "fifa_ranking": 35,
         "elo_rating": 1530,
     },
 
@@ -1368,7 +1369,7 @@ TEAM_PROFILES = {
             {"en": "Over-reliance on Mbappe moments", "簡中": "过度依赖姆巴佩的个人时刻", "繁中": "過度依賴姆巴佩的個人時刻"},
         ],
         "style": "balanced",
-        "fifa_ranking": 2,
+        "fifa_ranking": 3,
         "elo_rating": 2040,
     },
 
@@ -1406,7 +1407,7 @@ TEAM_PROFILES = {
             {"en": "Struggle against possession teams", "簡中": "面对控球型球队吃力", "繁中": "面對控球型球隊吃力"},
         ],
         "style": "defensive_counter",
-        "fifa_ranking": 25,
+        "fifa_ranking": 17,
         "elo_rating": 1770,
     },
 
@@ -1444,7 +1445,7 @@ TEAM_PROFILES = {
             {"en": "Lack of elite-level experience", "簡中": "缺乏顶级赛事经验", "繁中": "缺乏頂級賽事經驗"},
         ],
         "style": "balanced",
-        "fifa_ranking": 40,
+        "fifa_ranking": 39,
         "elo_rating": 1560,
     },
 
@@ -1524,7 +1525,7 @@ TEAM_PROFILES = {
             {"en": "Occasional slow starts", "簡中": "偶尔慢热", "繁中": "偶爾慢熱"},
         ],
         "style": "attacking_possession",
-        "fifa_ranking": 3,
+        "fifa_ranking": 1,
         "elo_rating": 2020,
     },
 
@@ -1562,7 +1563,7 @@ TEAM_PROFILES = {
             {"en": "Vulnerable to high press", "簡中": "怕高位逼抢", "繁中": "怕高位逼搶"},
         ],
         "style": "balanced",
-        "fifa_ranking": 34,
+        "fifa_ranking": 31,
         "elo_rating": 1630,
     },
 
@@ -1638,7 +1639,7 @@ TEAM_PROFILES = {
             {"en": "Shallow squad depth", "簡中": "阵容深度不足", "繁中": "陣容深度不足"},
         ],
         "style": "defensive_counter",
-        "fifa_ranking": 45,
+        "fifa_ranking": 44,
         "elo_rating": 1510,
     },
 
@@ -1718,7 +1719,7 @@ TEAM_PROFILES = {
             {"en": "Lack of elite-level experience", "簡中": "缺乏顶级赛事经验", "繁中": "缺乏頂級賽事經驗"},
         ],
         "style": "defensive_counter",
-        "fifa_ranking": 41,
+        "fifa_ranking": 40,
         "elo_rating": 1480,
     },
 
@@ -1756,7 +1757,7 @@ TEAM_PROFILES = {
             {"en": "Vulnerable against pace", "簡中": "怕速度型球员", "繁中": "怕速度型球員"},
         ],
         "style": "defensive_counter",
-        "fifa_ranking": 46,
+        "fifa_ranking": 45,
         "elo_rating": 1520,
     },
 
@@ -1912,7 +1913,7 @@ TEAM_PROFILES = {
             {"en": "Goalkeeping inconsistency", "簡中": "门将不稳定", "繁中": "門將不穩定"},
         ],
         "style": "attacking_possession",
-        "fifa_ranking": 28,
+        "fifa_ranking": 25,
         "elo_rating": 1690,
     },
 
@@ -1950,7 +1951,7 @@ TEAM_PROFILES = {
             {"en": "Vulnerable against quality opposition", "簡中": "面对强队脆弱", "繁中": "面對強隊脆弱"},
         ],
         "style": "defensive_counter",
-        "fifa_ranking": 42,
+        "fifa_ranking": 41,
         "elo_rating": 1570,
     },
 }

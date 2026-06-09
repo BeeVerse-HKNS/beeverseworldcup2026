@@ -616,6 +616,7 @@ def main():
         return
 
     lang = init_language()
+    is_cn = lang in ['zh_hant', 'zh_hans']
     theme = init_theme()
 
     if 'registered' not in st.session_state:
@@ -694,12 +695,12 @@ def main():
             t('player_database'),
             t('tournament_simulation'),
             t('model_analysis'),
-            '🔬 ' + ('運作原理' if APP_VERSION == 'china' else 'How It Works'),
+            '🔬 ' + ('運作原理' if is_cn else 'How It Works'),
             t('news_page'),
             t('xfactor_page'),
             t('team_profiles_page'),
-            '🗺️ ' + ('球隊路徑策略' if APP_VERSION == 'china' else 'Team Path Strategy'),
-            '🧩 ' + ('小組組合分析' if APP_VERSION == 'china' else 'Group Combinations'),
+            '🗺️ ' + ('球隊路徑策略' if is_cn else 'Team Path Strategy'),
+            '🧩 ' + ('小組組合分析' if is_cn else 'Group Combinations'),
         ]
         page = st.radio(t('navigation'), pages)
 
@@ -755,7 +756,7 @@ def main():
             show_tournament_simulation()
         elif page == t('model_analysis'):
             show_model_analysis()
-        elif page == '🔬 ' + ('運作原理' if APP_VERSION == 'china' else 'How It Works'):
+        elif page == '🔬 ' + ('運作原理' if is_cn else 'How It Works'):
             show_methodology()
         elif page == t('news_page'):
             show_news()
@@ -763,9 +764,9 @@ def main():
             show_xfactor()
         elif page == t('team_profiles_page'):
             show_team_profiles()
-        elif page == '🗺️ ' + ('球隊路徑策略' if APP_VERSION == 'china' else 'Team Path Strategy'):
+        elif page == '🗺️ ' + ('球隊路徑策略' if is_cn else 'Team Path Strategy'):
             show_team_path_strategy()
-        elif page == '🧩 ' + ('小組組合分析' if APP_VERSION == 'china' else 'Group Combinations'):
+        elif page == '🧩 ' + ('小組組合分析' if is_cn else 'Group Combinations'):
             show_group_combinations()
     except Exception as e:
         st.error(f"❌ {t('page_error')}: {str(e)}")
@@ -1950,7 +1951,7 @@ def show_team_profiles():
             avg_dribbling = sum(p['dribbling_skill'] for p in players) / len(players)
             avg_fitness = sum(p['fitness_level'] for p in players) / len(players)
 
-            categories = ['Pace', 'Shooting', 'Passing', 'Defending', 'Dribbling', 'Fitness']
+            categories = [t('category_pace'), t('category_shooting'), t('category_passing'), t('category_defending'), t('category_dribbling'), t('category_fitness')]
 
             st.subheader(f"📊 {t('team_squads_avg_attributes')}")
             fig_team = go.Figure(data=go.Scatterpolar(
@@ -2002,7 +2003,7 @@ def show_team_profiles():
     # ── Tab 2: Coach & Strategy ────────────────────────────────────────
     with tab_coach:
         if not _TEAM_PROFILES_AVAILABLE:
-            st.warning("Team Profiles module not available")
+            st.warning(t('team_profiles_module_not_available'))
         else:
             profile = get_team_profile(selected_team)
             if not profile:
@@ -2023,7 +2024,7 @@ def show_team_profiles():
                 <div style="background:linear-gradient(135deg,#1E1E1E,#2D2D2D);border:1px solid #4CAF50;border-radius:12px;padding:24px;margin-bottom:20px;">
                     <h3 style="color:#4CAF50;margin:0 0 12px 0;">🧑‍💼 {t('team_profiles_coach_label')}</h3>
                     <p style="color:white;font-size:1.2rem;margin:4px 0;"><strong>{coach.get('name', 'N/A')}</strong></p>
-                    <p style="color:#aaa;margin:4px 0;">{coach.get('nationality', '')} | Age: {coach.get('age', '')} | Style: {coach.get('style', '')}</p>
+                    <p style="color:#aaa;margin:4px 0;">{coach.get('nationality', '')} | {t('coach_age')}: {coach.get('age', '')} | {t('coach_style')}: {coach.get('style', '')}</p>
                 </div>
                 """, unsafe_allow_html=True)
 
@@ -2071,9 +2072,9 @@ def show_team_profiles():
 
                 # Style & Rankings
                 style_labels = {
-                    'defensive_counter': '🛡️ Defensive Counter',
-                    'attacking_possession': '⚔️ Attacking Possession',
-                    'balanced': '⚖️ Balanced',
+                    'defensive_counter': t('style_defensive_counter'),
+                    'attacking_possession': t('style_attacking_possession'),
+                    'balanced': t('style_balanced'),
                 }
                 st.markdown(f"""
                 <div style="background:linear-gradient(135deg,#1E1E1E,#2D2D2D);border-radius:12px;padding:16px;margin-top:16px;">
@@ -2097,7 +2098,7 @@ def show_team_profiles():
     # ── Tab 3: Anime Cards ─────────────────────────────────────────────
     with tab_anime:
         if not _ANIME_CARDS_AVAILABLE:
-            st.warning("Anime Card Renderer not available")
+            st.warning(t('anime_card_not_available'))
         else:
             players = engine.get_team_players(selected_team)
             if not players:
@@ -2113,7 +2114,7 @@ def show_team_profiles():
     # ── Tab 4: Venue Map ───────────────────────────────────────────────
     with tab_venue:
         if not _VENUE_MAP_AVAILABLE:
-            st.warning("Venue Map module not available")
+            st.warning(t('venue_map_not_available'))
         else:
             st.caption(t('team_profiles_venue_select'))
             fig = create_venue_map_3d(selected_team=selected_team)
@@ -2123,14 +2124,14 @@ def show_team_profiles():
             team_venues = get_team_venues(selected_team)
             if team_venues:
                 from wc2026_venue_data import get_flight_distance, VENUES
-                st.markdown("### ✈️ Flight Distances")
+                st.markdown(f"### ✈️ {t('flight_distances')}")
                 for i in range(len(team_venues)):
                     for j in range(i+1, len(team_venues)):
                         v1, v2 = team_venues[i], team_venues[j]
                         dist = get_flight_distance(v1, v2)
                         v1_name = VENUES[v1]["name"] if v1 in VENUES else v1
                         v2_name = VENUES[v2]["name"] if v2 in VENUES else v2
-                        st.markdown(f"**{v1_name}** ↔ **{v2_name}**: {dist:,.0f} miles")
+                        st.markdown(f"**{v1_name}** ↔ **{v2_name}**: {dist:,.0f} {t('unit_miles')}")
 
 def show_team_path_strategy():
     """Team Path Strategy page — per-team path analysis with social media export"""
@@ -2517,7 +2518,7 @@ def show_group_combinations():
                     for upset in upsets[:5]:
                         st.warning(f"🔥 {upset['match']}: Model {upset['model_prob']:.0%} vs Elo {upset['elo_prob']:.0%} (divergence: {upset['divergence']:.0%})")
             else:
-                st.error("V12 engine not available")
+                st.error(t('v12_engine_not_available'))
 
 if __name__ == "__main__":
     main()
