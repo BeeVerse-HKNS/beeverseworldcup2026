@@ -17,6 +17,12 @@ except ImportError:
     _V11_AVAILABLE = False
 
 try:
+    from odds_data_layer import OddsDataLayer
+    _ODDS_AVAILABLE = True
+except ImportError:
+    _ODDS_AVAILABLE = False
+
+try:
     from wc2026_team_path_generator import TeamPathGenerator
     _PATH_GEN_AVAILABLE = True
 except ImportError:
@@ -1045,6 +1051,7 @@ def main():
             t('player_database'),
             t('tournament_simulation'),
             t('model_analysis'),
+            '🔬 ' + ('運作原理' if APP_VERSION == 'china' else 'How It Works'),
             t('news_page'),
             t('xfactor_page'),
             t('team_squads_page'),
@@ -1104,6 +1111,8 @@ def main():
             show_tournament_simulation()
         elif page == t('model_analysis'):
             show_model_analysis()
+        elif page == '🔬 ' + ('運作原理' if APP_VERSION == 'china' else 'How It Works'):
+            show_methodology()
         elif page == t('news_page'):
             show_news()
         elif page == t('xfactor_page'):
@@ -1137,96 +1146,249 @@ def show_disclaimer_banner():
             st.session_state.disclaimer_dismissed = True
             st.rerun()
 
+def show_methodology():
+    """How It Works — methodology explanation page"""
+    is_cn = APP_VERSION == 'china'
+
+    st.title("🔬 " + ("運作原理" if is_cn else "How Our AI Predicts the World Cup"))
+
+    st.markdown(("我們的模型分析 **17 個因素**，分為 2 大類別，預測比賽結果。\n每次預測運行 **5,000+ 次** 蒙特卡洛模擬。"
+                 if is_cn else
+                 "Our model analyzes **17 factors** across 2 categories to predict match outcomes.\nWe run **5,000+ Monte Carlo simulations** for each prediction."))
+
+    st.divider()
+
+    # WHAT WE ANALYZE
+    st.header("📊 " + ("我們分析什麼" if is_cn else "WHAT WE ANALYZE"))
+
+    st.subheader(("球隊實力（佔預測 64%）" if is_cn else "Team Strength (64% of prediction)"))
+    team_factors = [
+        ("📊", ("歷史評級 (10%)" if is_cn else "Historical Rating (10%)"), ("球隊長期實力如何？" if is_cn else "How strong is this team over time?")),
+        ("📈", ("近期狀態 (8%)" if is_cn else "Recent Form (8%)"), ("最近贏球了嗎？" if is_cn else "Are they winning lately?")),
+        ("👥", ("陣容深度 (10%)" if is_cn else "Squad Depth (10%)"), ("替補席能頂上嗎？" if is_cn else "Can their bench deliver?")),
+        ("🧠", ("教練水平 (8%)" if is_cn else "Coaching (8%)"), ("戰術佈置如何？" if is_cn else "How good is the tactical setup?")),
+        ("⭐", ("X因子球員 (8%)" if is_cn else "X-Factor Players (8%)"), ("誰能改變比賽？" if is_cn else "Who can change the game?")),
+        ("💪", ("心理素質 (5%)" if is_cn else "Mental Strength (5%)"), ("能扛住壓力嗎？" if is_cn else "Can they handle pressure?")),
+        ("💰", ("陣容身價 (7%)" if is_cn else "Squad Value (7%)"), ("天賦有多高？" if is_cn else "How talented is the roster?")),
+        ("🏅", ("大賽經驗 (5%)" if is_cn else "Big-Game Experience (5%)"), ("以前來過嗎？" if is_cn else "Have they been here before?")),
+        ("⚔️", ("風格對位 (5%)" if is_cn else "Style Matchup (5%)"), ("風格相剋嗎？" if is_cn else "Does their style counter the opponent?")),
+    ]
+    for emoji, name, desc in team_factors:
+        st.markdown(f"  {emoji} **{name}** — {desc}")
+
+    st.subheader(("比賽條件（佔預測 36%）" if is_cn else "Match Conditions (36% of prediction)"))
+    match_factors = [
+        ("🔋", ("休息恢復 (12%)" if is_cn else "Recovery Time (12%)"), ("球員有多新鮮？" if is_cn else "How fresh are the players?")),
+        ("🌡️", ("極端高溫 (5%)" if is_cn else "Extreme Heat (5%)"), ("能扛住酷熱嗎？" if is_cn else "Can they handle the summer?")),
+        ("✈️", ("旅途距離 (4%)" if is_cn else "Travel Distance (4%)"), ("飛了多遠？" if is_cn else "How far did they fly?")),
+        ("🏟️", ("主場優勢 (4%)" if is_cn else "Home Advantage (4%)"), ("主場作戰？" if is_cn else "Playing at home?")),
+        ("⛰️", ("海拔效應 (3%)" if is_cn else "Altitude (3%)"), ("墨西哥城空氣稀薄" if is_cn else "Mexico City's thin air")),
+        ("🍀", ("運氣因子 (2%)" if is_cn else "Luck Factor (2%)"), ("隨機事件" if is_cn else "Random events")),
+        ("📅", ("賽程密度 (1%)" if is_cn else "Schedule (1%)"), ("比賽有多密集？" if is_cn else "How tight are the games?")),
+        ("🏗️", ("小組策略 (3%)" if is_cn else "Group Strategy (3%)"), ("新！第三場能否輪換休息？" if is_cn else "NEW: Can they rest in match 3?")),
+    ]
+    for emoji, name, desc in match_factors:
+        st.markdown(f"  {emoji} **{name}** — {desc}")
+
+    st.divider()
+
+    # MARKET INTELLIGENCE
+    st.header("🎰 " + ("市場情報" if is_cn else "MARKET INTELLIGENCE"))
+
+    st.markdown(("我們還整合全球市場信號作為「現實檢驗」。\n全球數千名專業分析師根據內幕消息、傷情報告和實時信息設定價格。\n\n我們的模型混合：**AI 預測 (85%) + 市場信號 (15%)**\n市場權重隨着比賽臨近而增加（更多信息 = 更大權重）。\n\n⚠️ 市場數據僅作為統計輸入使用。\n前端絕不顯示任何博彩信息。"
+                 if is_cn else
+                 "We also incorporate global market signals as a \"reality check\".\nThousands of professional analysts worldwide set prices based on\ninsider knowledge, injury reports, and real-time information.\n\nOur model blends: **AI Prediction (85%) + Market Signal (15%)**\nThe market weight increases as kickoff approaches (more info = more weight).\n\n⚠️ Market data is used ONLY as a statistical input.\nNo gambling information is ever displayed."))
+
+    st.divider()
+
+    # HOW SIMULATIONS WORK
+    st.header("🔄 " + ("模擬如何運作" if is_cn else "HOW SIMULATIONS WORK"))
+
+    if is_cn:
+        st.markdown("""對於每場比賽，我們：
+1. 為兩支球隊評分所有 17 個因素
+2. 運行 5,000 次模擬比賽
+3. 計算每支球隊獲勝的次數
+4. 將百分比作為概率報告
+
+對於整個錦標賽：
+1. 模擬所有小組賽
+2. 晉級前 2 名 + 8 個最佳第 3 名
+3. 模擬淘汰賽
+4. 重複 2,000 次
+5. 報告每支球隊達到每個階段的頻率""")
+    else:
+        st.markdown("""For each match, we:
+1. Score both teams on all 17 factors
+2. Run 5,000 simulated matches
+3. Count how often each team wins
+4. Report the percentage as probability
+
+For the full tournament:
+1. Simulate all group stage matches
+2. Advance top 2 + 8 best 3rd-place teams
+3. Simulate knockout rounds
+4. Repeat 2,000 times
+5. Report how often each team reaches each stage""")
+
+    st.divider()
+
+    # DISCLAIMER
+    st.header("⚠️ " + ("重要聲明" if is_cn else "IMPORTANT DISCLAIMER"))
+    st.warning(("這是基於大數據分析的 AI 統計概率推算，並非博彩建議。結果為概率估算，不構成任何保證。足球不可預測——這正是它的魅力！"
+                if is_cn else
+                "This is an AI statistical projection based on big data analysis. It is NOT gambling advice. Results are probabilistic estimates, not guarantees. Football is unpredictable — that's what makes it beautiful!"))
+
+
 def show_home():
-    st.title(f"🏆 {t('app_title')}")
+    """Dashboard — Home page with today's matches, trending teams, quick stats"""
+    is_cn = APP_VERSION == 'china'
+    lang = st.session_state.language if 'language' in st.session_state else 'en'
+    theme = init_theme()
+    apply_custom_css(lang, theme)
+    tokens = get_design_tokens(lang, theme)
 
-    col_info1, col_info2, col_info3 = st.columns(3)
-    with col_info1:
-        st.metric(t('tournament_format').split('/')[0].strip(), "48")
-    with col_info2:
-        st.metric(t('tournament_dates'), t('tournament_dates'))
-    with col_info3:
-        st.metric(t('host_countries').split(':')[0] if ':' in t('host_countries') else t('host_countries'),
-                  t('host_countries').split(': ')[1] if ': ' in t('host_countries') else t('host_countries'))
+    st.title("🏆 " + ("2026 世界盃 AI 預測" if is_cn else "World Cup 2026 AI Predictor"))
+    st.caption("Formula V11.1 — 17 Dimensions × 3 EmoGlyphPlay Engines × Dynamic Market Intelligence")
 
-    st.markdown(f"""
-    {t('welcome_title')}
+    # Quick Stats Row
+    st.markdown("### 📊 " + ("快速統計" if is_cn else "Quick Stats"))
+    stat_cols = st.columns(4)
 
-    {t('ai_model_intro')}
+    if _V11_AVAILABLE:
+        try:
+            v11 = load_v11_engine()
+            result = v11.simulate_tournament(500)
+            preds = result['predictions']
+            top_team = list(preds.keys())[0]
+            top_prob = preds[top_team]["win_probability"]
 
-    - ⚽ **{t('factor_attack_power').split('—')[0].strip()}** — {t('factor_attack_power').split('—')[1].strip() if '—' in t('factor_attack_power') else t('factor_attack_power')}
-    - 📊 **{t('factor_market_odds').split('—')[0].strip()}** — {t('factor_market_odds').split('—')[1].strip() if '—' in t('factor_market_odds') else t('factor_market_odds')}
-    - 💰 **{t('factor_squad_value').split('—')[0].strip()}** — {t('factor_squad_value').split('—')[1].strip() if '—' in t('factor_squad_value') else t('factor_squad_value')}
-    - 🏃 **{t('factor_form_fitness').split('—')[0].strip()}** — {t('factor_form_fitness').split('—')[1].strip() if '—' in t('factor_form_fitness') else t('factor_form_fitness')}
-    - ⭐ **{t('factor_xfactor_players').split('—')[0].strip()}** — {t('factor_xfactor_players').split('—')[1].strip() if '—' in t('factor_xfactor_players') else t('factor_xfactor_players')}
+            with stat_cols[0]:
+                st.metric("🏆 " + ("最可能冠軍" if is_cn else "Most Likely Champion"), top_team, f"{top_prob:.1%}")
+            with stat_cols[1]:
+                # Find dark horse (team with 2-8% win prob, highest among them)
+                dark_horses = [(t, p) for t, p in preds.items() if 0.02 <= p["win_probability"] <= 0.08]
+                if dark_horses:
+                    dh = max(dark_horses, key=lambda x: x[1]["win_probability"])
+                    st.metric("🐴 " + ("黑馬" if is_cn else "Dark Horse"), dh[0], f"{dh[1]['win_probability']:.1%}")
+                else:
+                    st.metric("🐴 " + ("黑馬" if is_cn else "Dark Horse"), "—", "—")
+            with stat_cols[2]:
+                # Biggest upset potential (lowest ranked team with >50% group advance)
+                upsets = [(t, p) for t, p in preds.items() if p["group_advance_probability"] > 0.5 and p["win_probability"] < 0.03]
+                if upsets:
+                    upset_team = max(upsets, key=lambda x: x[1]["group_advance_probability"])
+                    st.metric("🔥 " + ("最大冷門" if is_cn else "Upset Alert"), upset_team[0], f"{upset_team[1]['group_advance_probability']:.0%}")
+                else:
+                    st.metric("🔥 " + ("最大冷門" if is_cn else "Upset Alert"), "—", "—")
+            with stat_cols[3]:
+                total_teams = len(preds)
+                st.metric("⚽ " + ("參賽球隊" if is_cn else "Teams"), f"{total_teams}", "48 " + ("隊" if is_cn else "teams"))
+        except Exception as e:
+            st.caption(f"Stats unavailable: {e}")
 
-    **{t('features_title')}**
-    - {t('feature_predict')}
-    - {t('feature_compare')}
-    - {t('feature_explore')}
-    - {t('feature_simulate')}
-    - {t('feature_analyze')}
-    """)
+    st.divider()
 
-    col1, col2, col3 = st.columns(3)
+    # Today's Featured Matches
+    st.markdown("### ⚽ " + ("焦點比賽" if is_cn else "Featured Matches"))
 
-    with col1:
-        st.metric(t('metric_teams'), len(engine.get_all_teams()))
-    with col2:
-        st.metric(t('metric_players'), len(engine.players))
-    with col3:
-        st.metric(t('metric_xfactor'), sum(1 for p in engine.players if p.is_xfactor))
+    if _V11_AVAILABLE:
+        try:
+            v11 = load_v11_engine()
+            featured_matches = [
+                ("France", "Brazil"),
+                ("England", "Germany"),
+                ("Argentina", "Spain"),
+            ]
 
-    st.subheader(f"📊 {t('research_summary')}")
+            for home, away in featured_matches:
+                pred = v11.predict_match(home, away, {'stage': 'group'})
+                home_p = pred['prob_a_win']
+                draw_p = pred['prob_draw']
+                away_p = pred['prob_b_win']
 
-    col_r1, col_r2, col_r3, col_r4 = st.columns(4)
-    with col_r1:
-        st.metric(t('total_news'), "10,001")
-    with col_r2:
-        st.metric(t('xfactor_players'), "40")
-    with col_r3:
-        st.metric("Accuracy", "90.4%")
-    with col_r4:
-        st.metric(t('research_iterations'), "735")
+                home_pct = int(home_p * 100)
+                draw_pct = int(draw_p * 100)
+                away_pct = int(away_p * 100)
 
-    st.subheader(f"🏅 {t('top_teams_title')}")
-    team_strengths = []
-    for team_name, team in engine.teams.items():
-        team_strengths.append({
-            'Team': team_name,
-            t('overall_strength'): team.overall_strength,
-            t('attack_power'): team.attack_power,
-            t('defense_strength'): team.defense_strength,
-            t('pk_ability'): team.pk_ability
-        })
+                winner = home if home_p > away_p else away
+                winner_pct = max(home_p, away_p)
 
-    if not team_strengths:
-        st.warning(f"⚠️ {t('no_team_data')}")
-        return
+                st.markdown(f"""
+                <div style="background:#1E1E1E;border-radius:8px;padding:12px 16px;margin:6px 0;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                        <span style="font-weight:bold;color:#4CAF50;">{home}</span>
+                        <span style="color:#FFB300;">vs</span>
+                        <span style="font-weight:bold;color:#81C784;">{away}</span>
+                    </div>
+                    <div style="display:flex;height:24px;border-radius:6px;overflow:hidden;">
+                        <div style="width:{home_pct}%;background:#4CAF50;display:flex;align-items:center;justify-content:center;color:white;font-size:0.8rem;font-weight:bold;">{home_pct}%</div>
+                        <div style="width:{draw_pct}%;background:#FFB300;display:flex;align-items:center;justify-content:center;color:#1E1E1E;font-size:0.8rem;font-weight:bold;">{draw_pct}%</div>
+                        <div style="width:{away_pct}%;background:#81C784;display:flex;align-items:center;justify-content:center;color:#1E1E1E;font-size:0.8rem;font-weight:bold;">{away_pct}%</div>
+                    </div>
+                    <div style="text-align:center;margin-top:4px;color:#888;font-size:0.8rem;">
+                        💡 {winner} {('勝率' if is_cn else 'wins')} {winner_pct:.0%}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+        except Exception as e:
+            st.caption(f"Match predictions unavailable: {e}")
 
-    df = pd.DataFrame(team_strengths)
-    overall_col = t('overall_strength')
-    if overall_col not in df.columns:
-        st.warning(f"⚠️ {t('data_structure_error')}")
-        st.write(df)
-        return
+    st.divider()
 
-    df_top = df.sort_values(overall_col, ascending=False).head(10)
+    # Tournament Top 10
+    st.markdown("### 🏆 " + ("奪冠概率 Top 10" if is_cn else "Tournament Win Probability Top 10"))
 
-    lang = st.session_state.language
-    display_names = [get_team_name(t_name, lang) for t_name in df_top['Team']]
+    if _V11_AVAILABLE:
+        try:
+            v11 = load_v11_engine()
+            result = v11.simulate_tournament(500)
+            preds = result['predictions']
 
-    heatmap_data = df_top[[t('overall_strength'), t('attack_power'), t('defense_strength'), t('pk_ability')]].values
-    fig = px.imshow(
-        heatmap_data,
-        x=[t('overall_strength'), t('attack_power'), t('defense_strength'), t('pk_ability')],
-        y=display_names,
-        color_continuous_scale=['#1B5E20', '#4CAF50', '#81C784', '#FFB300', '#FFD54F'],
-        aspect='auto',
-        title=t('top_10_teams')
-    )
-    fig.update_xaxes(side='bottom')
-    st.plotly_chart(fig, width='stretch')
+            for i, (team, p) in enumerate(list(preds.items())[:10]):
+                wp = p["win_probability"]
+                col_rank, col_team, col_bar = st.columns([1, 3, 6])
+                with col_rank:
+                    st.markdown(f"**{i+1}**")
+                with col_team:
+                    st.markdown(f"**{team}**")
+                with col_bar:
+                    st.progress(min(wp * 5, 1.0), text=f"{wp:.1%}")
+        except Exception as e:
+            st.caption(f"Tournament simulation unavailable: {e}")
+
+    st.divider()
+
+    # Trending Teams
+    st.markdown("### 📈 " + ("趨勢球隊" if is_cn else "Trending Teams"))
+
+    if _V11_AVAILABLE:
+        try:
+            v11 = load_v11_engine()
+            # Show teams with highest structural advantage
+            from formula_v11_emoglyph import WC2026_GROUPS
+            trending = []
+            for group_name, teams in WC2026_GROUPS.items():
+                for team in teams:
+                    sa = v11.score_structural_advantage(team, {'stage': 'group'})
+                    if sa > 0.7:
+                        trending.append((team, sa, group_name))
+
+            trending.sort(key=lambda x: x[1], reverse=True)
+
+            if trending:
+                cols = st.columns(min(4, len(trending)))
+                for i, (team, sa, group) in enumerate(trending[:4]):
+                    with cols[i]:
+                        st.markdown(f"**{team}**\n🏗️ Group {group}\nSA: {sa:.0%}")
+            else:
+                st.caption("No trending teams data")
+        except Exception:
+            st.caption("Trending data unavailable")
+
+    # Footer
+    st.divider()
+    st.caption("⚠️ " + ("這是 AI 統計概率推算，並非博彩建議" if is_cn else "AI statistical projection — NOT gambling advice"))
 
 def show_match_prediction():
     st.title(f"⚽ {t('match_prediction_title')}")
@@ -1283,22 +1445,27 @@ def show_match_prediction():
             with opta_cols[idx]:
                 st.metric(get_team_name(team, lang), f"{opta_probs[team]}%")
 
-    st.subheader(f"📈 {'統計共識參數' if is_cn else 'Statistical Consensus Parameters'}")
-    col3, col4, col5 = st.columns(3)
-    with col3:
-        home_odds = st.number_input(t('home_win_odds'), min_value=1.01, max_value=50.0, value=2.0, step=0.01)
-    with col4:
-        draw_odds = st.number_input(t('draw_odds'), min_value=1.01, max_value=50.0, value=3.2, step=0.01)
-    with col5:
-        away_odds = st.number_input(t('away_win_odds'), min_value=1.01, max_value=50.0, value=3.5, step=0.01)
+    # Auto-fetch statistical consensus (replaces manual odds input)
+    if _ODDS_AVAILABLE:
+        try:
+            odds_layer = OddsDataLayer()
+            market_data = odds_layer.fetch_market_consensus(home_team, away_team)
+            auto_alpha = odds_layer.calculate_dynamic_alpha()  # Default: no match time
+            use_odds = True
+        except Exception:
+            auto_alpha = 0.15
+            use_odds = False
+    else:
+        auto_alpha = 0.15
+        use_odds = False
 
-    use_odds = st.toggle("📊 " + ("統計共識整合" if is_cn else "Statistical Consensus Integration"), value=True, help="Blend model prediction with statistical consensus: P_final = 0.6 × P_consensus + 0.4 × P_model")
-    if use_odds:
-        alpha_val = st.slider("📊 " + ("共識權重 (α)" if is_cn else "Consensus Weight (α)"), min_value=0.0, max_value=1.0, value=0.6, step=0.05, help="α=1.0 = pure consensus, α=0.0 = pure model")
-        odds_predictor.alpha = alpha_val
+    # Advanced settings (collapsed)
+    with st.expander("⚙️ " + ("進階設定" if is_cn else "Advanced Settings")):
+        use_odds = st.toggle("📊 " + ("統計共識整合" if is_cn else "Statistical Consensus Integration"), value=use_odds, help="Blend model prediction with statistical consensus")
+        alpha_val = st.slider("📊 " + ("共識權重 (α)" if is_cn else "Consensus Weight (α)"), min_value=0.0, max_value=1.0, value=auto_alpha, step=0.05, help=f"α=1.0 = pure consensus, α=0.0 = pure model (auto: {auto_alpha:.2f})")
 
     if st.button(t('predict_match'), width='stretch'):
-        result = engine.predict_match(home_team, away_team, home_odds, draw_odds, away_odds)
+        result = engine.predict_match(home_team, away_team, 2.0, 3.2, 3.5)
 
         if not result['success']:
             st.error(result.get('error', t('prediction_failed')))
@@ -1311,96 +1478,129 @@ def show_match_prediction():
         )
 
         if use_odds:
+            odds_predictor.alpha = alpha_val
             blended = odds_predictor.predict(home_team, away_team, model_probs)
-            display_home = blended.final_home
-            display_draw = blended.final_draw
-            display_away = blended.final_away
-            display_result = blended.predicted_result
-            st.success(f"**{t('predicted_result')}:** {display_result} (Odds-Enhanced)")
+            home_win_prob = blended.final_home
+            draw_prob = blended.final_draw
+            away_win_prob = blended.final_away
         else:
-            display_home = model_probs[0]
-            display_draw = model_probs[1]
-            display_away = model_probs[2]
-            display_result = result['predicted_result']
-            st.success(f"**{t('predicted_result')}:** {display_result}")
-
-        st.info(f"**{t('confidence_level')}:** {result['confidence']}%")
-
-        if disclaimer_engine:
-            jurisdiction = st.session_state.get('user_jurisdiction', 'other')
-            pred_disclaimer = disclaimer_engine.get_prediction_disclaimer(jurisdiction)
-            if pred_disclaimer:
-                st.warning(f"⚠️ {pred_disclaimer}")
-
-        st.metric(t('model_confidence'), "90.4%")
-        st.caption(t('based_on_iterations').format(735))
+            home_win_prob = model_probs[0]
+            draw_prob = model_probs[1]
+            away_win_prob = model_probs[2]
 
         home_display = get_team_name(home_team, lang)
         away_display = get_team_name(away_team, lang)
 
-        if use_odds:
-            st.subheader("📊 Probability Comparison")
-            comp_col1, comp_col2 = st.columns(2)
-            with comp_col1:
-                st.markdown("**Model Only**")
-                m_col1, m_col2, m_col3 = st.columns(3)
-                with m_col1:
-                    st.metric(f"{home_display}", f"{model_probs[0]:.2%}")
-                with m_col2:
-                    st.metric("Draw", f"{model_probs[1]:.2%}")
-                with m_col3:
-                    st.metric(f"{away_display}", f"{model_probs[2]:.2%}")
-            with comp_col2:
-                st.markdown(f"**Blended (α={odds_predictor.alpha:.2f})**")
-                b_col1, b_col2, b_col3 = st.columns(3)
-                with b_col1:
-                    st.metric(f"{home_display}", f"{display_home:.2%}")
-                with b_col2:
-                    st.metric("Draw", f"{display_draw:.2%}")
-                with b_col3:
-                    st.metric(f"{away_display}", f"{display_away:.2%}")
+        # ═══ MATCH CARD ═══
+        st.markdown("---")
+        st.subheader("⚽ " + ("比賽預測" if is_cn else "MATCH PREDICTION"))
 
-            # Simple probability bars
-            st.markdown(f"**{home_display}** Win")
-            st.progress(display_home, text=f"{display_home:.1%}")
-            st.markdown("**Draw**")
-            st.progress(display_draw, text=f"{display_draw:.1%}")
-            st.markdown(f"**{away_display}** Win")
-            st.progress(display_away, text=f"{display_away:.1%}")
-            # Plain text summary
-            winner = home_display if display_home > display_away else away_display
-            st.info(f"💡 {winner} {'更有可能獲勝' if is_cn else 'is more likely to win'} ({max(display_home, display_away):.1%})")
+        # Visual probability bar
+        home_pct = int(home_win_prob * 100)
+        draw_pct = int(draw_prob * 100)
+        away_pct = int(away_win_prob * 100)
 
-            stats = odds_predictor.get_accuracy_stats()
-            if stats['total_matches'] > 0:
-                st.subheader("📈 Accuracy Comparison")
-                acc_col1, acc_col2, acc_col3 = st.columns(3)
-                with acc_col1:
-                    st.metric("Model Only", f"{stats['model_accuracy']:.1%}")
-                with acc_col2:
-                    st.metric("Odds-Blended", f"{stats['blended_accuracy']:.1%}")
-                with acc_col3:
-                    delta = stats['blended_accuracy'] - stats['model_accuracy']
-                    st.metric("Improvement", f"{delta:+.1%}")
+        st.markdown(f"""
+        <div style="background:#1E1E1E;border-radius:12px;padding:20px;margin:10px 0;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                <span style="font-size:1.3rem;font-weight:bold;color:#4CAF50;">{home_display}</span>
+                <span style="font-size:1rem;color:#FFB300;">vs</span>
+                <span style="font-size:1.3rem;font-weight:bold;color:#81C784;">{away_display}</span>
+            </div>
+            <div style="display:flex;height:32px;border-radius:8px;overflow:hidden;margin-bottom:8px;">
+                <div style="width:{home_pct}%;background:#4CAF50;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:0.9rem;">{home_pct}%</div>
+                <div style="width:{draw_pct}%;background:#FFB300;display:flex;align-items:center;justify-content:center;color:#1E1E1E;font-weight:bold;font-size:0.9rem;">{draw_pct}%</div>
+                <div style="width:{away_pct}%;background:#81C784;display:flex;align-items:center;justify-content:center;color:#1E1E1E;font-weight:bold;font-size:0.9rem;">{away_pct}%</div>
+            </div>
+            <div style="display:flex;justify-content:space-between;color:#888;font-size:0.8rem;">
+                <span>{home_display} Win</span>
+                <span>Draw</span>
+                <span>{away_display} Win</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Key Factors
+        st.markdown("### 🎯 " + ("關鍵因素" if is_cn else "KEY FACTORS"))
+
+        if _V11_AVAILABLE:
+            try:
+                v11 = load_v11_engine()
+                dims = v11._calculate_all_dimensions(home_team, {'stage': 'group'})
+                dims_away = v11._calculate_all_dimensions(away_team, {'stage': 'group'})
+
+                # Find top 3 factors with biggest difference
+                factor_diffs = []
+                human_names = {
+                    "elo_rating": ("歷史評級" if is_cn else "Historical Rating"),
+                    "recent_form": ("近期狀態" if is_cn else "Recent Form"),
+                    "squad_depth": ("陣容深度" if is_cn else "Squad Depth"),
+                    "coaching_style": ("教練水平" if is_cn else "Coaching"),
+                    "xfactor_players": ("X因子球員" if is_cn else "X-Factor Players"),
+                    "mental_psychological": ("心理素質" if is_cn else "Mental Strength"),
+                    "squad_value": ("陣容身價" if is_cn else "Squad Value"),
+                    "tournament_experience": ("大賽經驗" if is_cn else "Big-Game Experience"),
+                    "tactical_matchup": ("風格對位" if is_cn else "Style Matchup"),
+                    "rest_recovery": ("休息恢復" if is_cn else "Recovery"),
+                    "extreme_heat": ("耐熱能力" if is_cn else "Heat Tolerance"),
+                    "travel_fatigue": ("旅途疲勞" if is_cn else "Travel Fatigue"),
+                    "home_advantage": ("主場優勢" if is_cn else "Home Advantage"),
+                    "altitude_effect": ("海拔適應" if is_cn else "Altitude"),
+                    "structural_advantage": ("小組策略" if is_cn else "Group Strategy"),
+                }
+
+                for dim_name in dims:
+                    if dim_name in dims_away:
+                        diff = dims[dim_name] - dims_away[dim_name]
+                        factor_diffs.append((dim_name, dims[dim_name], dims_away[dim_name], diff))
+
+                factor_diffs.sort(key=lambda x: abs(x[3]), reverse=True)
+
+                for dim_name, home_val, away_val, diff in factor_diffs[:3]:
+                    name = human_names.get(dim_name, dim_name)
+                    if diff > 0:
+                        advantage_team = home_display
+                        stars = "⭐" * max(1, min(5, int(home_val * 5)))
+                        st.markdown(f"  • **{advantage_team}**: {name} 優勢 {stars}")
+                    else:
+                        advantage_team = away_display
+                        stars = "⭐" * max(1, min(5, int(away_val * 5)))
+                        st.markdown(f"  • **{advantage_team}**: {name} 優勢 {stars}")
+            except Exception:
+                st.caption("Factor analysis unavailable")
+
+        # Why? section
+        st.markdown("### 💡 " + ("為什麼？" if is_cn else "WHY?"))
+        winner = home_display if home_win_prob > away_win_prob else away_display
+        winner_prob = max(home_win_prob, away_win_prob)
+        loser = away_display if winner == home_display else home_display
+
+        if is_cn:
+            st.info(f"**{winner}** 的勝率為 {winner_prob:.0%}。主要優勢來自關鍵因素的差異。足球比賽充滿不確定性，{loser} 仍有翻盤機會！")
         else:
-            col_a, col_b, col_c = st.columns(3)
-            with col_a:
-                st.metric(f"{home_display} Win", f"{display_home:.2%}")
-            with col_b:
-                st.metric("Draw", f"{display_draw:.2%}")
-            with col_c:
-                st.metric(f"{away_display} Win", f"{display_away:.2%}")
+            st.info(f"**{winner}** has a {winner_prob:.0%} chance to win. Their advantage comes from key factor differences. But football is unpredictable — **{loser}** still has a chance!")
 
-            # Simple probability bars
-            st.markdown(f"**{home_display}** Win")
-            st.progress(display_home, text=f"{display_home:.1%}")
-            st.markdown("**Draw**")
-            st.progress(display_draw, text=f"{display_draw:.1%}")
-            st.markdown(f"**{away_display}** Win")
-            st.progress(display_away, text=f"{display_away:.1%}")
-            # Plain text summary
-            winner = home_display if display_home > display_away else away_display
-            st.info(f"💡 {winner} {'更有可能獲勝' if is_cn else 'is more likely to win'} ({max(display_home, display_away):.1%})")
+        # Confidence meter
+        st.markdown("### 📊 " + ("信心指數" if is_cn else "CONFIDENCE"))
+        if _ODDS_AVAILABLE and use_odds:
+            try:
+                odds_layer = OddsDataLayer()
+                model_p = {"home_prob": home_win_prob, "draw_prob": draw_prob, "away_prob": away_win_prob}
+                market_p = market_data.to_frontend_dict() if hasattr(market_data, 'to_frontend_dict') else {"home_prob": 0.5, "draw_prob": 0.25, "away_prob": 0.5}
+                conf = odds_layer.calculate_confidence(model_p, market_p)
+                conf_pct = int(conf["confidence_score"] * 100)
+                conf_level = conf["confidence_level"]
+                conf_desc = conf["description"]
+
+                conf_icon = {"High": "🟢", "Medium": "🟡", "Low": "🔴"}.get(conf_level, "⚪")
+                st.progress(conf_pct / 100, text=f"{conf_icon} {conf_level}: {conf_pct}% — {conf_desc}")
+            except Exception:
+                st.progress(0.5, text="🟡 Medium: 50% — Default confidence")
+        else:
+            st.progress(0.5, text="🟡 " + ("中等：無市場數據" if is_cn else "Medium: No market data"))
+
+        # Last updated
+        st.caption("🔄 " + ("市場數據每 6 小時更新" if is_cn else "Market data refreshes every 6 hours"))
 
         st.subheader(f"📊 {t('factor_breakdown')}")
         premium_badge()

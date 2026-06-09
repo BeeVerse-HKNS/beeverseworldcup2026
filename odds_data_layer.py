@@ -355,6 +355,116 @@ class OddsDataLayer:
             round(final_away / total, 4),
         )
 
+    def calculate_dynamic_alpha(self, match_time=None) -> float:
+        """Calculate dynamic alpha (market weight) based on time to kickoff.
+
+        Alpha schedule:
+        - 7+ days before: 0.10 (early odds are noisy)
+        - 3-7 days before: 0.15 (market settling)
+        - 1-3 days before: 0.20 (lineup news affects odds)
+        - Match day: 0.25 (closing line is most accurate)
+        - After kickoff: 0.00 (no more market data)
+        """
+        from datetime import datetime, timezone
+
+        if match_time is None:
+            # Default: assume 3-7 days before match
+            return 0.15
+
+        try:
+            if isinstance(match_time, str):
+                match_time = datetime.fromisoformat(match_time.replace('Z', '+00:00'))
+
+            now = datetime.now(timezone.utc)
+            if hasattr(match_time, 'tzinfo') and match_time.tzinfo is None:
+                match_time = match_time.replace(tzinfo=timezone.utc)
+
+            hours_to_kickoff = (match_time - now).total_seconds() / 3600
+
+            if hours_to_kickoff < 0:
+                return 0.00  # Match started
+            elif hours_to_kickoff < 24:
+                return 0.25  # Match day
+            elif hours_to_kickoff < 72:
+                return 0.20  # 1-3 days
+            elif hours_to_kickoff < 168:
+                return 0.15  # 3-7 days
+            else:
+                return 0.10  # 7+ days
+        except Exception:
+            return 0.15  # Default fallback
+
+    def get_refresh_interval_hours(self, match_time=None) -> float:
+        """Get recommended refresh interval based on match proximity.
+
+        - 3+ days away: 6 hours
+        - 1-3 days away: 2 hours
+        - Match day: 0.5 hours (30 min)
+        """
+        from datetime import datetime, timezone
+
+        if match_time is None:
+            return 6.0
+
+        try:
+            if isinstance(match_time, str):
+                match_time = datetime.fromisoformat(match_time.replace('Z', '+00:00'))
+
+            now = datetime.now(timezone.utc)
+            if hasattr(match_time, 'tzinfo') and match_time.tzinfo is None:
+                match_time = match_time.replace(tzinfo=timezone.utc)
+
+            hours_to_kickoff = (match_time - now).total_seconds() / 3600
+
+            if hours_to_kickoff < 24:
+                return 0.5  # 30 min on match day
+            elif hours_to_kickoff < 72:
+                return 2.0  # 2 hours 1-3 days
+            else:
+                return 6.0  # 6 hours 3+ days
+        except Exception:
+            return 6.0
+
+    def calculate_confidence(self, model_probs: dict, market_probs: dict) -> dict:
+        """Calculate confidence level based on model-market agreement.
+
+        Returns dict with:
+        - confidence_score: 0-1 (1 = perfect agreement)
+        - confidence_level: "High" / "Medium" / "Low"
+        - description: plain text explanation
+        """
+        if not model_probs or not market_probs:
+            return {
+                "confidence_score": 0.3,
+                "confidence_level": "Low",
+                "description": "Limited market data available"
+            }
+
+        # Calculate agreement between model and market
+        model_home = model_probs.get("home_prob", 0.5)
+        market_home = market_probs.get("home_prob", 0.5)
+
+        diff = abs(model_home - market_home)
+
+        # Convert difference to confidence (smaller diff = higher confidence)
+        confidence_score = max(0.0, min(1.0, 1.0 - diff * 3))
+
+        if confidence_score >= 0.7:
+            level = "High"
+            desc = "Model and market agree"
+        elif confidence_score >= 0.4:
+            level = "Medium"
+            desc = "Some disagreement between model and market"
+        else:
+            level = "Low"
+            desc = "Significant disagreement — prediction uncertain"
+
+        return {
+            "confidence_score": confidence_score,
+            "confidence_level": level,
+            "description": desc
+        }
+
     def get_market_weight_for_v11(self, team_home: str, team_away: str) -> dict:
         """Get market probability for V11 engine integration (backend only).
         Returns dict with home_prob, draw_prob, away_prob.
