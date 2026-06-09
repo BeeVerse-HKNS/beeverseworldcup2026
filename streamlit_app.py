@@ -984,6 +984,8 @@ def main():
 
     apply_custom_css(lang, theme)
 
+    show_disclaimer_banner()
+
     if APP_VERSION == 'international' and 'cookie_consent' not in st.session_state:
         st.markdown("""
         <div style="position:fixed;bottom:0;left:0;right:0;background:#1E1E1E;padding:12px 24px;
@@ -1046,10 +1048,7 @@ def main():
             t('news_page'),
             t('xfactor_page'),
             t('team_squads_page'),
-            '🌡️ ' + ('極端環境分析' if APP_VERSION == 'china' else 'Extreme Environment'),
-            '🗺️ ' + ('球隊路徑策略' if APP_VERSION == 'china' else 'Team Path Strategy'),
-            '📚 ' + ('變現指南' if APP_VERSION == 'china' else 'Monetization Guide'),
-            '💼 ' + ('商業方案' if APP_VERSION == 'china' else 'Business Solutions')
+            '🗺️ ' + ('球隊路徑策略' if APP_VERSION == 'china' else 'Team Path Strategy')
         ]
         page = st.radio(t('navigation'), pages)
 
@@ -1111,17 +1110,32 @@ def main():
             show_xfactor()
         elif page == t('team_squads_page'):
             show_team_squads()
-        elif page == '🌡️ ' + ('極端環境分析' if APP_VERSION == 'china' else 'Extreme Environment'):
-            show_extreme_environment()
         elif page == '🗺️ ' + ('球隊路徑策略' if APP_VERSION == 'china' else 'Team Path Strategy'):
             show_team_path_strategy()
-        elif page == '📚 ' + ('變現指南' if APP_VERSION == 'china' else 'Monetization Guide'):
-            show_monetization_guide()
-        elif page == '💼 ' + ('商業方案' if APP_VERSION == 'china' else 'Business Solutions'):
-            show_business_solutions()
     except Exception as e:
         st.error(f"❌ {t('page_error')}: {str(e)}")
         st.info(t('try_refresh'))
+
+def show_disclaimer_banner():
+    """Show big-data projection disclaimer banner on every page"""
+    is_cn = APP_VERSION == 'china'
+    if 'disclaimer_dismissed' not in st.session_state:
+        st.session_state.disclaimer_dismissed = False
+    
+    if not st.session_state.disclaimer_dismissed:
+        if is_cn:
+            warning_text = "⚠️ 这是基于大数据分析的AI统计概率推算，并非博彩建议。结果为概率估算，不构成任何保证。"
+        else:
+            warning_text = "⚠️ This is an AI statistical projection based on big data analysis. It is NOT gambling advice. Results are probabilistic estimates, not guarantees."
+        
+        st.markdown(f"""
+        <div style="background:rgba(255,179,0,0.15);border:1px solid #FFB300;border-radius:8px;padding:12px 16px;margin-bottom:16px;">
+            <p style="margin:0;color:#FFB300;font-size:0.9rem;">{warning_text}</p>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("✓ " + ("我已知晓" if is_cn else "I understand"), key="dismiss_disclaimer"):
+            st.session_state.disclaimer_dismissed = True
+            st.rerun()
 
 def show_home():
     st.title(f"🏆 {t('app_title')}")
@@ -1218,6 +1232,7 @@ def show_match_prediction():
     st.title(f"⚽ {t('match_prediction_title')}")
 
     lang = st.session_state.language
+    is_cn = APP_VERSION == 'china'
     teams = engine.get_all_teams()
     if not teams:
         st.error(f"❌ {t('no_teams_available')}")
@@ -1268,7 +1283,7 @@ def show_match_prediction():
             with opta_cols[idx]:
                 st.metric(get_team_name(team, lang), f"{opta_probs[team]}%")
 
-    st.subheader(f"📈 {t('betting_odds_title')}")
+    st.subheader(f"📈 {'統計共識參數' if is_cn else 'Statistical Consensus Parameters'}")
     col3, col4, col5 = st.columns(3)
     with col3:
         home_odds = st.number_input(t('home_win_odds'), min_value=1.01, max_value=50.0, value=2.0, step=0.01)
@@ -1277,9 +1292,9 @@ def show_match_prediction():
     with col5:
         away_odds = st.number_input(t('away_win_odds'), min_value=1.01, max_value=50.0, value=3.5, step=0.01)
 
-    use_odds = st.toggle("Odds Integration", value=True, help="Blend model prediction with market odds: P_final = 0.6 × P_odds + 0.4 × P_model")
+    use_odds = st.toggle("📊 " + ("統計共識整合" if is_cn else "Statistical Consensus Integration"), value=True, help="Blend model prediction with statistical consensus: P_final = 0.6 × P_consensus + 0.4 × P_model")
     if use_odds:
-        alpha_val = st.slider("Odds Weight (α)", min_value=0.0, max_value=1.0, value=0.6, step=0.05, help="α=1.0 = pure odds, α=0.0 = pure model")
+        alpha_val = st.slider("📊 " + ("共識權重 (α)" if is_cn else "Consensus Weight (α)"), min_value=0.0, max_value=1.0, value=0.6, step=0.05, help="α=1.0 = pure consensus, α=0.0 = pure model")
         odds_predictor.alpha = alpha_val
 
     if st.button(t('predict_match'), width='stretch'):
@@ -1345,14 +1360,16 @@ def show_match_prediction():
                 with b_col3:
                     st.metric(f"{away_display}", f"{display_away:.2%}")
 
-            fig = go.Figure(data=[go.Pie(
-                labels=[f"{home_display} Win", "Draw", f"{away_display} Win"],
-                values=[display_home, display_draw, display_away],
-                hole=0.3,
-                marker=dict(colors=['#4CAF50', '#FFB300', '#81C784'])
-            )])
-            fig.update_layout(title_text=f"Blended Probability (α={odds_predictor.alpha:.2f})")
-            st.plotly_chart(fig, width='stretch')
+            # Simple probability bars
+            st.markdown(f"**{home_display}** Win")
+            st.progress(display_home, text=f"{display_home:.1%}")
+            st.markdown("**Draw**")
+            st.progress(display_draw, text=f"{display_draw:.1%}")
+            st.markdown(f"**{away_display}** Win")
+            st.progress(display_away, text=f"{display_away:.1%}")
+            # Plain text summary
+            winner = home_display if display_home > display_away else away_display
+            st.info(f"💡 {winner} {'更有可能獲勝' if is_cn else 'is more likely to win'} ({max(display_home, display_away):.1%})")
 
             stats = odds_predictor.get_accuracy_stats()
             if stats['total_matches'] > 0:
@@ -1374,14 +1391,16 @@ def show_match_prediction():
             with col_c:
                 st.metric(f"{away_display} Win", f"{display_away:.2%}")
 
-            fig = go.Figure(data=[go.Pie(
-                labels=[f"{home_display} Win", "Draw", f"{away_display} Win"],
-                values=[display_home, display_draw, display_away],
-                hole=0.3,
-                marker=dict(colors=['#4CAF50', '#FFB300', '#81C784'])
-            )])
-            fig.update_layout(title_text=t('probability_distribution'))
-            st.plotly_chart(fig, width='stretch')
+            # Simple probability bars
+            st.markdown(f"**{home_display}** Win")
+            st.progress(display_home, text=f"{display_home:.1%}")
+            st.markdown("**Draw**")
+            st.progress(display_draw, text=f"{display_draw:.1%}")
+            st.markdown(f"**{away_display}** Win")
+            st.progress(display_away, text=f"{display_away:.1%}")
+            # Plain text summary
+            winner = home_display if display_home > display_away else away_display
+            st.info(f"💡 {winner} {'更有可能獲勝' if is_cn else 'is more likely to win'} ({max(display_home, display_away):.1%})")
 
         st.subheader(f"📊 {t('factor_breakdown')}")
         premium_badge()
@@ -1396,30 +1415,13 @@ def show_match_prediction():
                 st.metric(away_display, f"{factors['xg']['away']:.2f}")
 
             st.write(f"**{t('player_factor')}:**")
-            categories = [t('player_factor')]
-            fig_radar = go.Figure()
-            fig_radar.add_trace(go.Scatterpolar(
-                r=[factors['player_factor']['home']],
-                theta=categories,
-                fill='toself',
-                fillcolor='rgba(76,175,80,0.3)',
-                line_color='#4CAF50',
-                name=home_display
-            ))
-            fig_radar.add_trace(go.Scatterpolar(
-                r=[factors['player_factor']['away']],
-                theta=categories,
-                fill='toself',
-                fillcolor='rgba(255,179,0,0.3)',
-                line_color='#FFB300',
-                name=away_display
-            ))
-            fig_radar.update_layout(
-                polar=dict(radialaxis=dict(visible=True)),
-                showlegend=True,
-                title=t('player_factor')
-            )
-            st.plotly_chart(fig_radar, width='stretch')
+            # Simple emoji factor comparison
+            pf_home = factors['player_factor']['home']
+            pf_away = factors['player_factor']['away']
+            pf_home_stars = "⭐" * max(1, min(5, int(pf_home * 5)))
+            pf_away_stars = "⭐" * max(1, min(5, int(pf_away * 5)))
+            st.markdown(f"**{home_display}**: {pf_home_stars} ({pf_home:.2f})")
+            st.markdown(f"**{away_display}**: {pf_away_stars} ({pf_away:.2f})")
 
             st.write(f"**{t('defensive_pk')}:**")
             col_pk1, col_pk2 = st.columns(2)
@@ -1436,6 +1438,60 @@ def show_match_prediction():
                 st.metric(away_display, f"{factors['xfactor']['away']:.2f}")
         else:
             premium_gate("Detailed Factor Analysis")
+
+        # Environmental Factors (integrated from Extreme Environment page)
+        st.subheader("🌡️ " + ("環境因素" if is_cn else "Environmental Factors"))
+
+        if _V11_AVAILABLE:
+            try:
+                from formula_v11_emoglyph import FormulaV11Engine, WC2026_GROUPS
+                from wc2026_venue_data import get_wbgt_risk, get_altitude_effect
+                from wc2026_recovery_data import get_team_recovery
+
+                v11 = load_v11_engine()
+                env_col1, env_col2 = st.columns(2)
+
+                with env_col1:
+                    st.markdown(f"**{home_display}**")
+                    # Heat
+                    heat_h = v11.score_extreme_heat(home_team, {'stage': 'group'})
+                    heat_icon = "🟢" if heat_h > 0.7 else "🟡" if heat_h > 0.4 else "🔴"
+                    st.markdown(f"{heat_icon} 🌡️ {'耐熱能力' if is_cn else 'Heat Tolerance'}: {heat_h:.0%}")
+                    # Recovery
+                    rec_h = v11.score_rest_recovery(home_team, {'stage': 'group'})
+                    rec_icon = "🟢" if rec_h > 0.7 else "🟡" if rec_h > 0.4 else "🔴"
+                    st.markdown(f"{rec_icon} 🔋 {'休息恢復' if is_cn else 'Recovery'}: {rec_h:.0%}")
+                    # Travel
+                    trav_h = v11.score_travel_fatigue(home_team, {'stage': 'group'})
+                    trav_icon = "🟢" if trav_h > 0.7 else "🟡" if trav_h > 0.4 else "🔴"
+                    st.markdown(f"{trav_icon} ✈️ {'旅途疲勞' if is_cn else 'Travel Fatigue'}: {trav_h:.0%}")
+                    # Altitude
+                    alt_h = v11.score_altitude_effect(home_team, {'stage': 'group'})
+                    alt_icon = "🟢" if alt_h > 0.7 else "🟡" if alt_h > 0.4 else "🔴"
+                    st.markdown(f"{alt_icon} ⛰️ {'海拔適應' if is_cn else 'Altitude Adaptation'}: {alt_h:.0%}")
+
+                with env_col2:
+                    st.markdown(f"**{away_display}**")
+                    heat_a = v11.score_extreme_heat(away_team, {'stage': 'group'})
+                    heat_icon_a = "🟢" if heat_a > 0.7 else "🟡" if heat_a > 0.4 else "🔴"
+                    st.markdown(f"{heat_icon_a} 🌡️ {'耐熱能力' if is_cn else 'Heat Tolerance'}: {heat_a:.0%}")
+                    rec_a = v11.score_rest_recovery(away_team, {'stage': 'group'})
+                    rec_icon_a = "🟢" if rec_a > 0.7 else "🟡" if rec_a > 0.4 else "🔴"
+                    st.markdown(f"{rec_icon_a} 🔋 {'休息恢復' if is_cn else 'Recovery'}: {rec_a:.0%}")
+                    trav_a = v11.score_travel_fatigue(away_team, {'stage': 'group'})
+                    trav_icon_a = "🟢" if trav_a > 0.7 else "🟡" if trav_a > 0.4 else "🔴"
+                    st.markdown(f"{trav_icon_a} ✈️ {'旅途疲勞' if is_cn else 'Travel Fatigue'}: {trav_a:.0%}")
+                    alt_a = v11.score_altitude_effect(away_team, {'stage': 'group'})
+                    alt_icon_a = "🟢" if alt_a > 0.7 else "🟡" if alt_a > 0.4 else "🔴"
+                    st.markdown(f"{alt_icon_a} ⛰️ {'海拔適應' if is_cn else 'Altitude Adaptation'}: {alt_a:.0%}")
+
+                # Plain text summary
+                env_advantage = home_team if (heat_h + rec_h) > (heat_a + rec_a) else away_team
+                st.info(f"💡 {'環境因素傾向於' if is_cn else 'Environmental factors favor'} **{env_advantage}**")
+            except Exception as e:
+                st.caption(f"Environmental data unavailable: {e}")
+        else:
+            st.caption("Environmental factors require V11 engine")
 
 def show_team_comparison():
     st.title(f"⚔️ {t('team_comparison_title')}")
