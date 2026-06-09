@@ -45,6 +45,24 @@ try:
     _DEEP_RESEARCH_AVAILABLE = True
 except ImportError:
     _DEEP_RESEARCH_AVAILABLE = False
+
+try:
+    from wc2026_team_profiles import get_team_profile, get_team_coach, get_team_formation, get_team_strategy, get_team_main_player, get_team_strengths, get_team_weaknesses
+    _TEAM_PROFILES_AVAILABLE = True
+except ImportError:
+    _TEAM_PROFILES_AVAILABLE = False
+
+try:
+    from wc2026_anime_card_renderer import generate_player_card_html, generate_team_cards_html
+    _ANIME_CARDS_AVAILABLE = True
+except ImportError:
+    _ANIME_CARDS_AVAILABLE = False
+
+try:
+    from wc2026_venue_map import create_venue_map_3d, get_team_venues
+    _VENUE_MAP_AVAILABLE = True
+except ImportError:
+    _VENUE_MAP_AVAILABLE = False
 from languages import LANGUAGES, LANGUAGE_NAMES, get_text, get_language_name, get_available_languages, get_default_language
 from player_translations import get_player_name, get_team_name
 from user_registration_db import save_registration, get_registration_count
@@ -1066,7 +1084,7 @@ def main():
             '🔬 ' + ('運作原理' if APP_VERSION == 'china' else 'How It Works'),
             t('news_page'),
             t('xfactor_page'),
-            t('team_squads_page'),
+            t('team_profiles_page'),
             '🗺️ ' + ('球隊路徑策略' if APP_VERSION == 'china' else 'Team Path Strategy'),
             '🧩 ' + ('小組組合分析' if APP_VERSION == 'china' else 'Group Combinations'),
         ]
@@ -1130,8 +1148,8 @@ def main():
             show_news()
         elif page == t('xfactor_page'):
             show_xfactor()
-        elif page == t('team_squads_page'):
-            show_team_squads()
+        elif page == t('team_profiles_page'):
+            show_team_profiles()
         elif page == '🗺️ ' + ('球隊路徑策略' if APP_VERSION == 'china' else 'Team Path Strategy'):
             show_team_path_strategy()
         elif page == '🧩 ' + ('小組組合分析' if APP_VERSION == 'china' else 'Group Combinations'):
@@ -2354,6 +2372,227 @@ def show_team_squads():
                     height=250
                 )
                 st.plotly_chart(fig_player, width='stretch')
+
+def show_team_profiles():
+    """Team Profiles page with 4 sub-tabs: Squad, Coach & Strategy, Anime Cards, Venue Map"""
+    st.title(f"🏟️ {t('team_profiles_title')}")
+
+    lang_map = {'en': 'en', 'zh_hant': '繁中', 'zh_hans': '簡中'}
+    lang = st.session_state.language
+    profile_lang = lang_map.get(lang, 'en')
+
+    teams = engine.get_all_teams()
+    if not teams:
+        st.error(f"❌ {t('team_profiles_no_data')}")
+        return
+
+    team_display_names = {team: get_team_name(team, lang) for team in teams}
+    display_teams = [team_display_names[t] for t in teams]
+
+    selected_display = st.selectbox(t('team_profiles_select'), display_teams)
+    selected_team = teams[display_teams.index(selected_display)]
+
+    tab_squad, tab_coach, tab_anime, tab_venue = st.tabs([
+        f"👥 {t('team_profiles_squad')}",
+        f"📋 {t('team_profiles_coach')}",
+        f"🎴 {t('team_profiles_anime')}",
+        f"🗺️ {t('team_profiles_venue')}",
+    ])
+
+    # ── Tab 1: Squad Overview ──────────────────────────────────────────
+    with tab_squad:
+        players = engine.get_team_players(selected_team)
+        if not players:
+            st.warning(t('team_squads_no_players'))
+        else:
+            avg_pace = sum(p['pace'] for p in players) / len(players)
+            avg_shooting = sum(p['shooting'] for p in players) / len(players)
+            avg_passing = sum(p['passing'] for p in players) / len(players)
+            avg_defending = sum(p['defending'] for p in players) / len(players)
+            avg_dribbling = sum(p['dribbling_skill'] for p in players) / len(players)
+            avg_fitness = sum(p['fitness_level'] for p in players) / len(players)
+
+            categories = ['Pace', 'Shooting', 'Passing', 'Defending', 'Dribbling', 'Fitness']
+
+            st.subheader(f"📊 {t('team_squads_avg_attributes')}")
+            fig_team = go.Figure(data=go.Scatterpolar(
+                r=[avg_pace, avg_shooting, avg_passing, avg_defending, avg_dribbling, avg_fitness],
+                theta=categories,
+                fill='toself',
+                fillcolor='rgba(76,175,80,0.3)',
+                line_color='#4CAF50',
+                name=get_team_name(selected_team, lang)
+            ))
+            fig_team.update_layout(
+                polar=dict(radialaxis=dict(visible=True, range=[0, 100])),
+                showlegend=True,
+                title=f"{get_team_name(selected_team, lang)} {t('team_squads_avg_attributes')}"
+            )
+            st.plotly_chart(fig_team, width='stretch')
+
+            st.subheader(f"⚽ {t('team_squads_player_abilities')}")
+            for p in players:
+                p['overall'] = (p['pace'] + p['shooting'] + p['passing'] + p['defending'] + p['dribbling_skill'] + p['fitness_level']) / 6
+            players_sorted = sorted(players, key=lambda x: x['overall'], reverse=True)
+
+            for i in range(0, len(players_sorted), 3):
+                row_players = players_sorted[i:i+3]
+                cols = st.columns(len(row_players))
+                for col, p in zip(cols, row_players):
+                    with col:
+                        player_name = get_player_name(p['name'], selected_team, lang)
+                        badge = f" {t('team_squads_xfactor_badge')}" if p['is_xfactor'] else ""
+                        st.markdown(f"**{player_name}**{badge}")
+                        st.caption(f"{p['position']} | {t('team_squads_overall')}: {p['overall']:.0f}")
+
+                        fig_player = go.Figure(data=go.Scatterpolar(
+                            r=[p['pace'], p['shooting'], p['passing'], p['defending'], p['dribbling_skill'], p['fitness_level']],
+                            theta=categories,
+                            fill='toself',
+                            fillcolor='rgba(76,175,80,0.3)',
+                            line_color='#4CAF50',
+                            name=player_name
+                        ))
+                        fig_player.update_layout(
+                            polar=dict(radialaxis=dict(visible=True, range=[0, 100])),
+                            showlegend=False,
+                            margin=dict(l=20, r=20, t=20, b=20),
+                            height=250
+                        )
+                        st.plotly_chart(fig_player, width='stretch')
+
+    # ── Tab 2: Coach & Strategy ────────────────────────────────────────
+    with tab_coach:
+        if not _TEAM_PROFILES_AVAILABLE:
+            st.warning("Team Profiles module not available")
+        else:
+            profile = get_team_profile(selected_team)
+            if not profile:
+                st.warning(t('team_profiles_no_data'))
+            else:
+                coach = profile.get('coach', {})
+                formation = profile.get('formation', '')
+                main_player = get_team_main_player(selected_team, profile_lang)
+                strategy = get_team_strategy(selected_team, profile_lang)
+                strengths = get_team_strengths(selected_team, profile_lang)
+                weaknesses = get_team_weaknesses(selected_team, profile_lang)
+                style = profile.get('style', '')
+                fifa_rank = profile.get('fifa_ranking', 0)
+                elo = profile.get('elo_rating', 0)
+
+                # Coach info card
+                st.markdown(f"""
+                <div style="background:linear-gradient(135deg,#1E1E1E,#2D2D2D);border:1px solid #4CAF50;border-radius:12px;padding:24px;margin-bottom:20px;">
+                    <h3 style="color:#4CAF50;margin:0 0 12px 0;">🧑‍💼 {t('team_profiles_coach_label')}</h3>
+                    <p style="color:white;font-size:1.2rem;margin:4px 0;"><strong>{coach.get('name', 'N/A')}</strong></p>
+                    <p style="color:#aaa;margin:4px 0;">{coach.get('nationality', '')} | Age: {coach.get('age', '')} | Style: {coach.get('style', '')}</p>
+                </div>
+                """, unsafe_allow_html=True)
+
+                # Formation & Star Player
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.markdown(f"""
+                    <div style="background:#1E1E1E;border:1px solid #FFB300;border-radius:12px;padding:20px;">
+                        <h4 style="color:#FFB300;margin:0 0 8px 0;">📐 {t('team_profiles_formation')}</h4>
+                        <p style="color:white;font-size:2rem;font-weight:bold;text-align:center;margin:8px 0;">{formation}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                with col2:
+                    mp_name = main_player.get('name', 'N/A') if isinstance(main_player, dict) else str(main_player)
+                    mp_pos = main_player.get('position', '') if isinstance(main_player, dict) else ''
+                    mp_nick = main_player.get('nickname', '') if isinstance(main_player, dict) else ''
+                    if isinstance(mp_nick, dict):
+                        mp_nick = mp_nick.get(profile_lang, mp_nick.get('en', ''))
+                    st.markdown(f"""
+                    <div style="background:#1E1E1E;border:1px solid #F44336;border-radius:12px;padding:20px;">
+                        <h4 style="color:#F44336;margin:0 0 8px 0;">⭐ {t('team_profiles_main_player')}</h4>
+                        <p style="color:white;font-size:1.3rem;font-weight:bold;margin:4px 0;">{mp_name}</p>
+                        <p style="color:#aaa;margin:2px 0;">{mp_pos} {('"' + mp_nick + '"') if mp_nick else ''}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                # Strategy
+                st.markdown(f"""
+                <div style="background:#1E1E1E;border:1px solid #2196F3;border-radius:12px;padding:20px;margin-top:16px;">
+                    <h4 style="color:#2196F3;margin:0 0 8px 0;">🎯 {t('team_profiles_strategy')}</h4>
+                    <p style="color:white;margin:0;">{strategy}</p>
+                </div>
+                """, unsafe_allow_html=True)
+
+                # Strengths & Weaknesses
+                col_s, col_w = st.columns(2)
+                with col_s:
+                    st.markdown(f"### 💪 {t('team_profiles_strengths')}")
+                    for s in strengths:
+                        st.markdown(f"- ✅ {s}")
+                with col_w:
+                    st.markdown(f"### ⚠️ {t('team_profiles_weaknesses')}")
+                    for w in weaknesses:
+                        st.markdown(f"- ❌ {w}")
+
+                # Style & Rankings
+                style_labels = {
+                    'defensive_counter': '🛡️ Defensive Counter',
+                    'attacking_possession': '⚔️ Attacking Possession',
+                    'balanced': '⚖️ Balanced',
+                }
+                st.markdown(f"""
+                <div style="background:linear-gradient(135deg,#1E1E1E,#2D2D2D);border-radius:12px;padding:16px;margin-top:16px;">
+                    <div style="display:flex;justify-content:space-around;flex-wrap:wrap;">
+                        <div style="text-align:center;padding:8px 16px;">
+                            <p style="color:#aaa;margin:0;font-size:0.85rem;">{t('team_profiles_style')}</p>
+                            <p style="color:white;margin:4px 0;font-weight:bold;">{style_labels.get(style, style)}</p>
+                        </div>
+                        <div style="text-align:center;padding:8px 16px;">
+                            <p style="color:#aaa;margin:0;font-size:0.85rem;">{t('team_profiles_fifa_rank')}</p>
+                            <p style="color:#FFB300;margin:4px 0;font-weight:bold;font-size:1.3rem;">#{fifa_rank}</p>
+                        </div>
+                        <div style="text-align:center;padding:8px 16px;">
+                            <p style="color:#aaa;margin:0;font-size:0.85rem;">{t('team_profiles_elo')}</p>
+                            <p style="color:#4CAF50;margin:4px 0;font-weight:bold;font-size:1.3rem;">{elo}</p>
+                        </div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+    # ── Tab 3: Anime Cards ─────────────────────────────────────────────
+    with tab_anime:
+        if not _ANIME_CARDS_AVAILABLE:
+            st.warning("Anime Card Renderer not available")
+        else:
+            players = engine.get_team_players(selected_team)
+            if not players:
+                st.warning(t('team_squads_no_players'))
+            else:
+                for p in players:
+                    p['overall'] = (p['pace'] + p['shooting'] + p['passing'] + p['defending'] + p['dribbling_skill'] + p['fitness_level']) / 6
+
+                team_color = "#4CAF50"
+                html = generate_team_cards_html(players, selected_team, team_color)
+                st.markdown(html, unsafe_allow_html=True)
+
+    # ── Tab 4: Venue Map ───────────────────────────────────────────────
+    with tab_venue:
+        if not _VENUE_MAP_AVAILABLE:
+            st.warning("Venue Map module not available")
+        else:
+            st.caption(t('team_profiles_venue_select'))
+            fig = create_venue_map_3d(selected_team=selected_team)
+            st.plotly_chart(fig, use_container_width=True)
+
+            # Show flight distance details
+            team_venues = get_team_venues(selected_team)
+            if team_venues:
+                from wc2026_venue_data import get_flight_distance, VENUES
+                st.markdown("### ✈️ Flight Distances")
+                for i in range(len(team_venues)):
+                    for j in range(i+1, len(team_venues)):
+                        v1, v2 = team_venues[i], team_venues[j]
+                        dist = get_flight_distance(v1, v2)
+                        v1_name = VENUES[v1]["name"] if v1 in VENUES else v1
+                        v2_name = VENUES[v2]["name"] if v2 in VENUES else v2
+                        st.markdown(f"**{v1_name}** ↔ **{v2_name}**: {dist:,.0f} miles")
 
 def show_extreme_environment():
     """V12 Extreme Environment + LightDarkBalance Analysis Page"""
