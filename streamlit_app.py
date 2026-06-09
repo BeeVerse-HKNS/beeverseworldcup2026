@@ -590,7 +590,7 @@ def show_admin_page():
     rows = get_all_registrations()
     if rows:
         df = pd.DataFrame(rows, columns=['ID', 'Name', 'Email', 'Phone', 'Language', 'Version', 'Registered At'])
-        st.dataframe(df, use_container_width=True, hide_index=True)
+        st.dataframe(df, width='stretch', hide_index=True)
 
         csv_buffer = io.StringIO()
         df.to_csv(csv_buffer, index=False)
@@ -601,7 +601,7 @@ def show_admin_page():
             data=csv_data,
             file_name=f"registrations_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.csv",
             mime="text/csv",
-            use_container_width=True
+            width='stretch'
         )
     else:
         st.info("No registrations yet")
@@ -1112,7 +1112,7 @@ def show_match_prediction():
         use_odds = st.toggle("📊 " + ("統計共識整合" if is_cn else "Statistical Consensus Integration"), value=use_odds, help="Blend model prediction with statistical consensus")
         alpha_val = st.slider("📊 " + ("共識權重 (α)" if is_cn else "Consensus Weight (α)"), min_value=0.0, max_value=1.0, value=auto_alpha, step=0.05, help=f"α=1.0 = pure consensus, α=0.0 = pure model (auto: {auto_alpha:.2f})")
 
-    if st.button(t('predict_match'), use_container_width=True):
+    if st.button(t('predict_match'), width='stretch'):
         result = engine.predict_match(home_team, away_team, 2.0, 3.2, 3.5)
 
         if not result['success']:
@@ -1401,7 +1401,7 @@ def show_team_comparison():
         team2_display = st.selectbox(t('team_2'), display_teams, index=default_t2)
         team2 = teams[display_teams.index(team2_display)]
 
-    if st.button(t('compare_teams'), use_container_width=True):
+    if st.button(t('compare_teams'), width='stretch'):
         comparison = engine.get_team_comparison(team1, team2)
 
         if not comparison['success']:
@@ -1455,7 +1455,7 @@ def show_team_comparison():
             showlegend=True,
             title=t('5_point_comparison')
         )
-        st.plotly_chart(fig_radar, use_container_width=True)
+        st.plotly_chart(fig_radar, width='stretch')
 
         st.subheader(f"📋 {get_team_name(team1, lang)} {t('xfactor_list_title')}")
         premium_badge()
@@ -1517,7 +1517,7 @@ def show_player_database():
             df_display = df_display[df_display['is_xfactor']]
             df = df[df['is_xfactor']]
 
-        st.dataframe(df_display, use_container_width=True)
+        st.dataframe(df_display, width='stretch')
 
         st.subheader(f"📊 {t('attribute_distribution')}")
 
@@ -1542,12 +1542,12 @@ def show_player_database():
             showlegend=True,
             title=f"{get_team_name(selected_team, lang)} {t('attribute_distribution')}"
         )
-        st.plotly_chart(fig_radar, use_container_width=True)
+        st.plotly_chart(fig_radar, width='stretch')
 
         st.subheader(f"⭐ {t('xfactor_players_section')}")
         xfactor_players = df[df['is_xfactor']]
         if not xfactor_players.empty:
-            st.dataframe(xfactor_players, use_container_width=True)
+            st.dataframe(xfactor_players, width='stretch')
         else:
             st.info(t('no_xfactor_in_team'))
     else:
@@ -1582,7 +1582,7 @@ def show_tournament_simulation():
     if 'tournament_result' not in st.session_state:
         st.session_state.tournament_result = None
 
-    if st.button(f"🎲 {t('simulate_tournament')}", use_container_width=True):
+    if st.button(f"🎲 {t('simulate_tournament')}", width='stretch'):
         with st.spinner(t('simulating')):
             st.session_state.tournament_result = tournament.simulate_tournament()
 
@@ -1602,7 +1602,7 @@ def show_tournament_simulation():
             display_index = [get_team_name(team, lang) for team in standings.index]
             standings_display = standings.copy()
             standings_display.index = display_index
-            st.dataframe(standings_display, use_container_width=True)
+            st.dataframe(standings_display, width='stretch')
 
         st.subheader(f"⚔️ {t('knockout_stage')}")
 
@@ -1652,7 +1652,7 @@ def show_model_analysis():
                            markers=True, title=t('accuracy_trend'),
                            line_shape='linear')
     fig_accuracy.update_traces(line=dict(width=3, color='#4CAF50'), marker=dict(size=10, color='#4CAF50'))
-    st.plotly_chart(fig_accuracy, use_container_width=True)
+    st.plotly_chart(fig_accuracy, width='stretch')
 
     col_n1, col_n2, col_n3, col_n4 = st.columns(4)
     with col_n1:
@@ -1682,7 +1682,7 @@ def show_model_analysis():
 
         fig = px.pie(weight_df, values='Weight', names='Factor', title=t('weight_distribution'),
                      color_discrete_sequence=['#4CAF50', '#FFB300', '#81C784', '#F57F17', '#A5D6A7'])
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
         st.subheader(f"📊 {t('three_board_params')}")
         params = engine.three_board.factors
@@ -1690,7 +1690,7 @@ def show_model_analysis():
             t('parameter'): list(params.keys()),
             t('value'): list(params.values())
         })
-        st.dataframe(params_df, use_container_width=True)
+        st.dataframe(params_df, width='stretch')
     else:
         premium_gate("Factor Weights & Model Parameters")
 
@@ -1718,7 +1718,7 @@ def show_model_analysis():
     fig = px.scatter_matrix(df, dimensions=[overall_col, attack_col, defense_col, pk_col],
                            title=t('correlation_matrix'),
                            color='Team')
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width='stretch')
 
     st.subheader(f"📈 {t('top_by_category')}")
     categories = [overall_col, attack_col, defense_col, pk_col]
@@ -1738,7 +1738,7 @@ def show_model_analysis():
             title=f"{t('top_5_teams')} - {cat}"
         )
         fig_heat.update_xaxes(side='bottom')
-        st.plotly_chart(fig_heat, use_container_width=True)
+        st.plotly_chart(fig_heat, width='stretch')
 
 def load_news_data():
     try:
@@ -1899,7 +1899,7 @@ def show_xfactor():
             title=t('xfactor_compare_title')
         )
 
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
     st.subheader(f"📋 {t('xfactor_title')}")
 
@@ -1909,7 +1909,7 @@ def show_xfactor():
         t('xfactor_goals'), t('xfactor_assists'), t('xfactor_form'), t('xfactor_fitness')
     ]
 
-    st.dataframe(display_df, use_container_width=True)
+    st.dataframe(display_df, width='stretch')
 
 def show_team_profiles():
     """Team Profiles page with 4 sub-tabs: Squad, Coach & Strategy, Anime Cards, Venue Map"""
@@ -1966,7 +1966,7 @@ def show_team_profiles():
                 showlegend=True,
                 title=f"{get_team_name(selected_team, lang)} {t('team_squads_avg_attributes')}"
             )
-            st.plotly_chart(fig_team, use_container_width=True)
+            st.plotly_chart(fig_team, width='stretch')
 
             st.subheader(f"⚽ {t('team_squads_player_abilities')}")
             for p in players:
@@ -1997,7 +1997,7 @@ def show_team_profiles():
                             margin=dict(l=20, r=20, t=20, b=20),
                             height=250
                         )
-                        st.plotly_chart(fig_player, use_container_width=True)
+                        st.plotly_chart(fig_player, width='stretch')
 
     # ── Tab 2: Coach & Strategy ────────────────────────────────────────
     with tab_coach:
@@ -2117,7 +2117,7 @@ def show_team_profiles():
         else:
             st.caption(t('team_profiles_venue_select'))
             fig = create_venue_map_3d(selected_team=selected_team)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
 
             # Show flight distance details
             team_venues = get_team_venues(selected_team)
