@@ -1,5 +1,6 @@
 import json
 import math
+import os
 import random
 from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass
@@ -59,13 +60,15 @@ class ThreeBoardModel:
         except:
             return 0.333, 0.333, 0.333
 
+_DEFAULT_PLAYER_DATA = os.path.join(os.path.dirname(__file__), 'data', 'wc2026_player_database.json')
+
 class FormulaV9:
-    def __init__(self, player_data_path: str):
+    def __init__(self, player_data_path: str = _DEFAULT_PLAYER_DATA):
         self.players = self._load_player_data(player_data_path)
         self.teams = self._build_team_database()
         self.three_board = ThreeBoardModel()
         self.odds_layer = OddsDataLayer()
-        self.alpha = 0.3
+        self.alpha = 0.6
         self.factor_weights = {
             'xg_weight': 0.22,
             'v7_weight': 0.18,

@@ -197,7 +197,8 @@ def premium_badge():
     return st.markdown('<span style="background:linear-gradient(135deg,#FFD700,#FFA000);color:#000;padding:2px 8px;border-radius:4px;font-size:0.75em;font-weight:bold;">⭐ PREMIUM</span>', unsafe_allow_html=True)
 
 def premium_gate(feature_name: str):
-    is_cn = APP_VERSION == 'china'
+    lang = init_language()
+    is_cn = lang in ['zh_hant', 'zh_hans']
     if revenue_manager:
         jurisdiction = st.session_state.get('user_jurisdiction', 'other')
         tiers = revenue_manager.get_pricing_tiers(jurisdiction)
@@ -508,7 +509,8 @@ def show_disclaimers():
 
 def show_affiliate_section():
     tokens = get_design_tokens(st.session_state.language, init_theme())
-    is_cn = APP_VERSION == 'china'
+    lang = init_language()
+    is_cn = lang in ['zh_hant', 'zh_hans']
 
     if revenue_manager:
         jurisdiction = st.session_state.get('user_jurisdiction', 'other')
@@ -541,395 +543,6 @@ def show_affiliate_section():
                 <a href="{url}" target="_blank" style="background:{tokens['primary_color']};color:white;padding:8px 16px;border-radius:4px;text-decoration:none;display:inline-block;">{'查看詳情' if is_cn else 'Shop Now'}</a>
             </div>
             """, unsafe_allow_html=True)
-
-def show_business_solutions():
-    lang = init_language()
-    theme = init_theme()
-    apply_custom_css(lang, theme)
-    tokens = get_design_tokens(lang, theme)
-    jurisdiction = st.session_state.get('user_jurisdiction', 'other')
-
-    is_cn = APP_VERSION == 'china'
-
-    st.markdown(f"""
-    <div style="text-align: center; padding: 2rem;">
-        <h1>💼 {'商業方案' if is_cn else 'Business Solutions'}</h1>
-        <p style="color:{tokens['text_secondary']};">{'為你嘅業務提供專業解決方案' if is_cn else 'Professional solutions for your business'}</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    if not revenue_manager:
-        st.warning('⚠️ Revenue module not available' if not is_cn else '⚠️ 收入模組不可用')
-        return
-
-    tiers = revenue_manager.get_pricing_tiers(jurisdiction)
-
-    st.subheader('💰 ' + ('定價方案' if is_cn else 'Pricing Plans'))
-    tier_cols = st.columns(len(tiers))
-    for col, tier in zip(tier_cols, tiers):
-        with col:
-            is_popular = tier['id'] == 'pro'
-            border = f"2px solid {tokens['primary_color']}" if is_popular else f"1px solid {tokens.get('surface_variant', '#333')}"
-            badge = '<span style="background:#FFB300;color:#000;padding:2px 8px;border-radius:4px;font-size:0.7em;font-weight:bold;">POPULAR</span>' if is_popular else ''
-            st.markdown(f"""
-            <div style="background:{tokens['card_bg']};border-radius:8px;padding:1.5rem;text-align:center;border:{border};">
-                {badge}
-                <h3>{tier['name']}</h3>
-                <p style="font-size:1.5rem;font-weight:bold;color:{tokens['primary_color']};">{tier['price']}</p>
-                <p style="font-size:0.8rem;color:{tokens['text_secondary']};">{tier['period']}</p>
-            </div>
-            """, unsafe_allow_html=True)
-            for feature in tier['features']:
-                st.markdown(f"- {feature}")
-            if tier.get('stripe_link'):
-                st.link_button(
-                    '🛒 ' + ('訂閱' if is_cn else 'Subscribe'),
-                    tier['stripe_link'],
-                    use_container_width=True,
-                )
-
-    st.divider()
-
-    st.subheader('📊 ' + ('功能比較' if is_cn else 'Feature Comparison'))
-    comparison = revenue_manager.get_feature_comparison()
-    comp_df = pd.DataFrame(comparison)
-    st.dataframe(comp_df, use_container_width=True, hide_index=True)
-
-    st.divider()
-
-    st.subheader('🛒 ' + ('推薦產品' if is_cn else 'Recommended Products'))
-    products = revenue_manager.get_compliant_affiliate_products(jurisdiction)
-    prod_cols = st.columns(len(products))
-    for col, product in zip(prod_cols, products):
-        with col:
-            st.markdown(f"""
-            <div style="background:{tokens['card_bg']};border-radius:8px;padding:1rem;text-align:center;border:1px solid {tokens.get('surface_variant', '#333')};">
-                <h4>{product['name']}</h4>
-                <p style="font-size:0.85rem;color:{tokens['text_secondary']};">{product['description']}</p>
-            </div>
-            """, unsafe_allow_html=True)
-            st.link_button(
-                '🛍️ ' + ('查看' if is_cn else 'Shop Now'),
-                product['url'],
-                use_container_width=True,
-            )
-
-    st.divider()
-
-    st.subheader('🏢 ' + ('企業合作' if is_cn else 'B2B Contact'))
-    with st.form("b2b_contact"):
-        company_name = st.text_input('🏢 ' + ('公司名稱' if is_cn else 'Company Name'))
-        contact_email = st.text_input('📧 ' + ('聯絡電郵' if is_cn else 'Contact Email'))
-        use_case = st.text_area('📝 ' + ('使用場景' if is_cn else 'Use Case'))
-        if st.form_submit_button('📤 ' + ('提交' if is_cn else 'Submit'), use_container_width=True):
-            if company_name and contact_email:
-                st.success('✅ ' + ('已收到你嘅查詢，我哋會盡快聯絡你。' if is_cn else 'Thank you! We will contact you shortly.'))
-            else:
-                st.error('❌ ' + ('請填寫公司名稱和電郵' if is_cn else 'Please fill in company name and email'))
-
-    st.divider()
-
-    api_url = revenue_manager.get_api_docs_url()
-    st.subheader('🔧 API ' + ('文檔' if is_cn else 'Documentation'))
-    st.markdown(f"📖 [{'API 文檔' if is_cn else 'API Documentation'}]({api_url})")
-
-def show_monetization_guide():
-    lang = init_language()
-    theme = init_theme()
-    apply_custom_css(lang, theme)
-    tokens = get_design_tokens(lang, theme)
-
-    if APP_VERSION == 'china':
-        sections = {
-            "💰 Freemium 變現策略": [
-                "**基本策略**：免費提供基本預測（勝/平/負概率），付費解鎖高級分析",
-                "**定價建議**：月費 ¥29-49，年費 ¥199-299",
-                "**Premium 內容**：詳細因素拆解、歷史對比、統計概率分析、實時推送",
-                "**轉化關鍵**：讓免費用戶體驗到價值，再引導付費",
-            ],
-            "🛒 Affiliate Marketing 收入": [
-                "**球衣/周邊**：淘寶聯盟、京東聯盟，佣金 3-10%",
-                "**門票**：官方授權渠道，佣金 5-15%",
-                "**旅行套餐**：攜程/飛豬聯盟，佣金 3-8%",
-                "**關鍵**：選擇合規數據分析產品，避免法律風險",
-            ],
-            "📱 社交媒體引流": [
-                "**抖音**：世界盃預測短視頻 → 引流到 App → 轉化為註冊用戶",
-                "**B站**：5因素模型深度分析視頻 → 建立專業形象 → Premium 轉化",
-                "**小紅書**：世界盃攻略筆記 → 種草周邊產品 → Affiliate 收入",
-                "**微信公眾號**：每日預測文章 → 付費深度分析 → 知識付費",
-            ],
-            "📊 數據驅動優化": [
-                "**追蹤指標**：註冊轉化率、Premium 轉化率、Affiliate 點擊率",
-                "**A/B 測試**：測試不同定價、不同 Premium 內容、不同 Affiliate 產品",
-                "**用戶分層**：免費用戶 → 活躍用戶 → 付費用戶 → 超級用戶",
-                "**持續迭代**：基於數據優化產品，而非憑感覺",
-            ],
-        }
-    else:
-        sections = {
-            "💰 Freemium Strategy": [
-                "**Basic**: Free predictions (Win/Draw/Lose probability)",
-                "**Pricing**: Monthly $4.99-9.99, Annual $39.99-59.99",
-                "**Premium Content**: Detailed factor breakdown, historical comparison, statistical probability analysis, real-time alerts",
-                "**Conversion Key**: Let free users experience value first, then guide to paid",
-            ],
-            "🛒 Affiliate Marketing Revenue": [
-                "**Jerseys/Merch**: Amazon Associates, FIFA Shop, 3-8% commission",
-                "**Tickets**: Official FIFA channels, 5-15% commission",
-                "**Travel**: Booking.com, Expedia affiliates, 3-8% commission",
-                "**Key**: Choose compliant data analysis products to avoid legal risks",
-            ],
-            "📱 Social Media Traffic": [
-                "**TikTok/IG Reels**: WC prediction shorts → Drive to App → Convert to registered users",
-                "**YouTube**: 5-Factor Model deep analysis → Build authority → Premium conversion",
-                "**Twitter/X**: Real-time match predictions → Build following → Affiliate revenue",
-                "**Blog/Newsletter**: Daily prediction articles → Premium analysis → Knowledge commerce",
-            ],
-            "📊 Data-Driven Optimization": [
-                "**Track Metrics**: Registration rate, Premium conversion rate, Affiliate click-through rate",
-                "**A/B Testing**: Test different pricing, Premium content, Affiliate products",
-                "**User Segmentation**: Free → Active → Paid → Super users",
-                "**Continuous Iteration**: Optimize based on data, not gut feeling",
-            ],
-        }
-
-    st.markdown(f"""
-    <div style="text-align: center; padding: 2rem;">
-        <h1>📚 {'變現教學指南' if APP_VERSION == 'china' else 'Monetization Guide'}</h1>
-        <p style="color:{tokens['text_secondary']};">{'如何從世界盃預測 App 賺錢' if APP_VERSION == 'china' else 'How to earn money from your WC2026 Predictor'}</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    for title, items in sections.items():
-        st.markdown(f"### {title}")
-        for item in items:
-            st.markdown(f"- {item}")
-        st.divider()
-
-def show_engagement_gate():
-    """Engagement gate: Like + Share + Subscribe to enter (replaces registration)"""
-    lang = init_language()
-    theme = init_theme()
-    apply_custom_css(lang, theme)
-    tokens = get_design_tokens(lang, theme)
-    is_cn = APP_VERSION == 'china'
-
-    # Initialize session state
-    for key in ['engagement_like', 'engagement_share', 'engagement_subscribe']:
-        if key not in st.session_state:
-            st.session_state[key] = False
-
-    # Title
-    st.markdown(f"""
-    <div style="text-align: center; padding: 2rem 1rem;">
-        <h1>🏆 World Cup 2026 AI Predictor</h1>
-        <p style="font-size: 1.3rem; color: {tokens['text_secondary']};">
-            {'免费使用 — 只需支持我们！' if is_cn else 'Free access — just support us!'}
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # Share text
-    share_url = "https://beeverse-wc2026-international.streamlit.app/"
-    share_text_en = "🏆 Check out this AI World Cup 2026 Predictor! 17 factors, 5000+ simulations, every team's path analyzed. Free to use! 🔮⚽ #WorldCup2026 #AIPrediction"
-    share_text_cn = "🏆 2026世界杯AI预测器！17个因素、5000+次模拟、每支球队路径分析。免费使用！🔮⚽ #世界杯2026 #AI预测"
-    share_text_tw = "🏆 2026世界盃AI預測器！17個因素、5000+次模擬、每支球隊路徑分析。免費使用！🔮⚽ #世界盃2026 #AI預測"
-    share_text = share_text_cn if is_cn else share_text_en
-    from urllib.parse import quote
-    encoded_share = quote(share_text)
-
-    # Step 1: Like
-    st.markdown("### 👍 " + ("第一步：点赞" if is_cn else "Step 1: Like us"))
-    like_cols = st.columns(4 if not is_cn else 3)
-    like_platforms = [
-        ("Twitter/X", f"https://twitter.com/intent/like?tweet_id=placeholder"),
-        ("Facebook", f"https://www.facebook.com/"),
-        ("Weibo", f"https://weibo.com/"),
-        ("Douyin", f"https://www.douyin.com/"),
-    ] if not is_cn else [
-        ("微博 Weibo", f"https://weibo.com/"),
-        ("抖音 Douyin", f"https://www.douyin.com/"),
-        ("微信 WeChat", f"https://weixin.qq.com/"),
-    ]
-    for i, (name, url) in enumerate(like_platforms):
-        with like_cols[i]:
-            if st.button(f"👍 {name}", key=f"like_{name}"):
-                st.session_state.engagement_like = True
-                st.rerun()
-
-    if st.session_state.engagement_like:
-        st.markdown(f'<p style="color: #4CAF50; font-weight: bold;">✅ {"已点赞！" if is_cn else "Liked!"}</p>', unsafe_allow_html=True)
-
-    st.divider()
-
-    # Step 2: Share
-    st.markdown("### 📤 " + ("第二步：分享" if is_cn else "Step 2: Share with friends"))
-    share_cols = st.columns(4 if not is_cn else 3)
-    share_platforms = [
-        ("Twitter/X", f"https://twitter.com/intent/tweet?text={encoded_share}&url={share_url}"),
-        ("Facebook", f"https://www.facebook.com/sharer/sharer.php?u={share_url}"),
-        ("WhatsApp", f"https://wa.me/?text={encoded_share}%20{share_url}"),
-        ("WeChat", None),  # WeChat needs copy link
-    ] if not is_cn else [
-        ("微博 Weibo", f"https://service.weibo.com/share/share.php?title={encoded_share}&url={share_url}"),
-        ("微信 WeChat", None),
-        ("抖音 Douyin", None),
-    ]
-    for i, (name, url) in enumerate(share_platforms):
-        with share_cols[i]:
-            if url:
-                st.markdown(f'<a href="{url}" target="_blank" rel="noopener noreferrer" style="text-decoration:none;"><button style="background:{tokens["primary_color"]};color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:14px;width:100%;">📤 {name}</button></a>', unsafe_allow_html=True)
-            else:
-                # Copy link for WeChat
-                st.markdown(f'<button onclick="navigator.clipboard.writeText(\'{share_text} {share_url}\');this.textContent=\'✅ Copied!\'" style="background:{tokens["primary_color"]};color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:14px;width:100%;">📤 {name}</button>', unsafe_allow_html=True)
-            if st.button(f"✓ {name}", key=f"share_{name}"):
-                st.session_state.engagement_share = True
-                st.rerun()
-
-    if st.session_state.engagement_share:
-        st.markdown(f'<p style="color: #4CAF50; font-weight: bold;">✅ {"已分享！" if is_cn else "Shared!"}</p>', unsafe_allow_html=True)
-
-    st.divider()
-
-    # Step 3: Subscribe
-    st.markdown("### 🔔 " + ("第三步：关注" if is_cn else "Step 3: Subscribe/Follow"))
-    sub_cols = st.columns(4 if not is_cn else 3)
-    sub_platforms = [
-        ("Twitter/X", "https://twitter.com/"),
-        ("YouTube", "https://www.youtube.com/"),
-        ("Facebook", "https://www.facebook.com/"),
-        ("Instagram", "https://www.instagram.com/"),
-    ] if not is_cn else [
-        ("微博 Weibo", "https://weibo.com/"),
-        ("抖音 Douyin", "https://www.douyin.com/"),
-        ("微信 WeChat", "https://weixin.qq.com/"),
-    ]
-    for i, (name, url) in enumerate(sub_platforms):
-        with sub_cols[i]:
-            if st.button(f"🔔 {name}", key=f"sub_{name}"):
-                st.session_state.engagement_subscribe = True
-                st.rerun()
-
-    if st.session_state.engagement_subscribe:
-        st.markdown(f'<p style="color: #4CAF50; font-weight: bold;">✅ {"已关注！" if is_cn else "Subscribed!"}</p>', unsafe_allow_html=True)
-
-    st.divider()
-
-    # Enter button
-    all_done = st.session_state.engagement_like and st.session_state.engagement_share and st.session_state.engagement_subscribe
-
-    if all_done:
-        if st.button("✅ " + ("进入应用" if is_cn else "Enter the App"), type="primary", use_container_width=True, key="enter_app"):
-            st.session_state.registered = True
-            st.rerun()
-    else:
-        remaining = []
-        if not st.session_state.engagement_like:
-            remaining.append("👍 " + ("点赞" if is_cn else "Like"))
-        if not st.session_state.engagement_share:
-            remaining.append("📤 " + ("分享" if is_cn else "Share"))
-        if not st.session_state.engagement_subscribe:
-            remaining.append("🔔 " + ("关注" if is_cn else "Subscribe"))
-        st.info("📌 " + ("请完成以下步骤：" if is_cn else "Please complete: ") + " | ".join(remaining))
-        st.button("✅ " + ("进入应用" if is_cn else "Enter the App"), disabled=True, use_container_width=True, key="enter_app_disabled")
-
-    # Language selector in sidebar
-    with st.sidebar:
-        st.markdown(f"### {t('language') if 't' in dir() else 'Language'}")
-        available_langs = get_available_languages(APP_VERSION)
-        lang_options = list(available_langs.keys())
-        lang_labels = [available_langs[l] for l in lang_options]
-        current_idx = lang_options.index(lang) if lang in lang_options else 0
-        selected_lang_label = st.selectbox(
-            "Language",
-            lang_labels,
-            index=current_idx,
-            label_visibility="collapsed"
-        )
-        selected_lang = lang_options[lang_labels.index(selected_lang_label)]
-        if selected_lang != lang:
-            set_language(selected_lang)
-
-def show_registration():
-    lang = init_language()
-    theme = init_theme()
-    apply_custom_css(lang, theme)
-
-    tokens = get_design_tokens(lang, theme)
-
-    st.markdown(f"""
-    <div style="text-align: center; padding: 3rem;">
-        <h1>🏆 {t('register_title')}</h1>
-        <p style="font-size: 1.2rem; color: {tokens['text_secondary']};">
-            {t('register_subtitle')}
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    with st.form("registration_form"):
-        name = st.text_input(t('register_name'), placeholder=t('register_name_placeholder'))
-        email = st.text_input(t('register_email'), placeholder=t('register_email_placeholder'))
-        phone_col1, phone_col2 = st.columns([1, 2])
-        with phone_col1:
-            default_code_idx = 3 if APP_VERSION == 'china' else 0
-            country_code = st.selectbox(
-                'Country Code',
-                options=[c[0] for c in COUNTRY_CODES],
-                format_func=lambda x: next(f'{c[0]} {c[1]}' for c in COUNTRY_CODES if c[0] == x),
-                index=default_code_idx,
-                label_visibility='collapsed'
-            )
-            if jurisdiction_detector:
-                user_jurisdiction = jurisdiction_detector.detect_from_phone(country_code)
-                st.session_state.user_jurisdiction = user_jurisdiction
-        with phone_col2:
-            if APP_VERSION == 'china':
-                phone_number = st.text_input(t('register_phone'), placeholder=t('register_phone_placeholder'), help='（可选）')
-            else:
-                phone_number = st.text_input(t('register_phone'), placeholder=t('register_phone_placeholder'))
-
-        st.caption(f"🔒 {t('register_privacy')}")
-
-        if APP_VERSION == 'china':
-            pipl_consent = st.checkbox('我已阅读并同意《个人信息处理政策》', value=False)
-            if not pipl_consent:
-                st.caption('📋 [隐私政策](https://beeverseworldcup2026.streamlit.app/privacy)')
-
-        submitted = st.form_submit_button(t('register_submit'), use_container_width=True)
-
-        if submitted:
-            if phone_number and not phone_number.replace(' ', '').replace('-', '').isdigit():
-                st.error("Phone number should contain only digits" if lang == 'en' else "電話號碼只能包含數字" if lang == 'zh_hant' else "电话号码只能包含数字")
-                return
-            phone = f'{country_code} {phone_number}' if phone_number else ''
-            if name and email:
-                if APP_VERSION == 'china' and not st.session_state.get('pipl_consent_checked', False):
-                    if not pipl_consent:
-                        st.error("请同意个人信息处理政策")
-                        return
-                save_registration(name, email, phone, lang, APP_VERSION)
-                st.session_state.registered = True
-                st.session_state.user_name = name
-                st.rerun()
-            else:
-                st.error("Please fill in name and email" if lang == 'en' else "請填寫姓名和電郵" if lang == 'zh_hant' else "请填写姓名和电邮")
-
-    with st.sidebar:
-        st.markdown(f"### {t('language')}")
-        available_langs = get_available_languages(APP_VERSION)
-        lang_options = list(available_langs.keys())
-        lang_labels = [available_langs[l] for l in lang_options]
-        current_idx = lang_options.index(lang) if lang in lang_options else 0
-        selected_lang_label = st.selectbox(
-            t('select_language'),
-            lang_labels,
-            index=current_idx,
-            label_visibility="collapsed"
-        )
-        selected_lang = lang_options[lang_labels.index(selected_lang_label)]
-        if selected_lang != lang:
-            set_language(selected_lang)
 
 def show_admin_page():
     lang = init_language()
@@ -1160,7 +773,8 @@ def main():
 
 def show_disclaimer_banner():
     """Show big-data projection disclaimer banner on every page"""
-    is_cn = APP_VERSION == 'china'
+    lang = init_language()
+    is_cn = lang in ['zh_hant', 'zh_hans']
     if 'disclaimer_dismissed' not in st.session_state:
         st.session_state.disclaimer_dismissed = False
     
@@ -1181,7 +795,8 @@ def show_disclaimer_banner():
 
 def show_methodology():
     """How It Works — methodology explanation page"""
-    is_cn = APP_VERSION == 'china'
+    lang = init_language()
+    is_cn = lang in ['zh_hant', 'zh_hans']
 
     st.title("🔬 " + ("運作原理" if is_cn else "How Our AI Predicts the World Cup"))
 
@@ -1275,8 +890,8 @@ For the full tournament:
 
 def show_home():
     """Dashboard — Home page with today's matches, trending teams, quick stats"""
-    is_cn = APP_VERSION == 'china'
     lang = st.session_state.language if 'language' in st.session_state else 'en'
+    is_cn = lang in ['zh_hant', 'zh_hans']
     theme = init_theme()
     apply_custom_css(lang, theme)
     tokens = get_design_tokens(lang, theme)
@@ -1427,7 +1042,7 @@ def show_match_prediction():
     st.title(f"⚽ {t('match_prediction_title')}")
 
     lang = st.session_state.language
-    is_cn = APP_VERSION == 'china'
+    is_cn = lang in ['zh_hant', 'zh_hans']
     teams = engine.get_all_teams()
     if not teams:
         st.error(f"❌ {t('no_teams_available')}")
@@ -1497,7 +1112,7 @@ def show_match_prediction():
         use_odds = st.toggle("📊 " + ("統計共識整合" if is_cn else "Statistical Consensus Integration"), value=use_odds, help="Blend model prediction with statistical consensus")
         alpha_val = st.slider("📊 " + ("共識權重 (α)" if is_cn else "Consensus Weight (α)"), min_value=0.0, max_value=1.0, value=auto_alpha, step=0.05, help=f"α=1.0 = pure consensus, α=0.0 = pure model (auto: {auto_alpha:.2f})")
 
-    if st.button(t('predict_match'), width='stretch'):
+    if st.button(t('predict_match'), use_container_width=True):
         result = engine.predict_match(home_team, away_team, 2.0, 3.2, 3.5)
 
         if not result['success']:
@@ -1619,7 +1234,7 @@ def show_match_prediction():
             try:
                 odds_layer = OddsDataLayer()
                 model_p = {"home_prob": home_win_prob, "draw_prob": draw_prob, "away_prob": away_win_prob}
-                market_p = market_data.to_frontend_dict() if hasattr(market_data, 'to_frontend_dict') else {"home_prob": 0.5, "draw_prob": 0.25, "away_prob": 0.5}
+                market_p = market_data.to_frontend_dict() if market_data and hasattr(market_data, 'to_frontend_dict') else {"home_prob": 0.5, "draw_prob": 0.25, "away_prob": 0.5}
                 conf = odds_layer.calculate_confidence(model_p, market_p)
                 conf_pct = int(conf["confidence_score"] * 100)
                 conf_level = conf["confidence_level"]
@@ -1786,7 +1401,7 @@ def show_team_comparison():
         team2_display = st.selectbox(t('team_2'), display_teams, index=default_t2)
         team2 = teams[display_teams.index(team2_display)]
 
-    if st.button(t('compare_teams'), width='stretch'):
+    if st.button(t('compare_teams'), use_container_width=True):
         comparison = engine.get_team_comparison(team1, team2)
 
         if not comparison['success']:
@@ -1840,7 +1455,7 @@ def show_team_comparison():
             showlegend=True,
             title=t('5_point_comparison')
         )
-        st.plotly_chart(fig_radar, width='stretch')
+        st.plotly_chart(fig_radar, use_container_width=True)
 
         st.subheader(f"📋 {get_team_name(team1, lang)} {t('xfactor_list_title')}")
         premium_badge()
@@ -1902,7 +1517,7 @@ def show_player_database():
             df_display = df_display[df_display['is_xfactor']]
             df = df[df['is_xfactor']]
 
-        st.dataframe(df_display, width='stretch')
+        st.dataframe(df_display, use_container_width=True)
 
         st.subheader(f"📊 {t('attribute_distribution')}")
 
@@ -1927,12 +1542,12 @@ def show_player_database():
             showlegend=True,
             title=f"{get_team_name(selected_team, lang)} {t('attribute_distribution')}"
         )
-        st.plotly_chart(fig_radar, width='stretch')
+        st.plotly_chart(fig_radar, use_container_width=True)
 
         st.subheader(f"⭐ {t('xfactor_players_section')}")
         xfactor_players = df[df['is_xfactor']]
         if not xfactor_players.empty:
-            st.dataframe(xfactor_players, width='stretch')
+            st.dataframe(xfactor_players, use_container_width=True)
         else:
             st.info(t('no_xfactor_in_team'))
     else:
@@ -1967,7 +1582,7 @@ def show_tournament_simulation():
     if 'tournament_result' not in st.session_state:
         st.session_state.tournament_result = None
 
-    if st.button(f"🎲 {t('simulate_tournament')}", width='stretch'):
+    if st.button(f"🎲 {t('simulate_tournament')}", use_container_width=True):
         with st.spinner(t('simulating')):
             st.session_state.tournament_result = tournament.simulate_tournament()
 
@@ -1987,7 +1602,7 @@ def show_tournament_simulation():
             display_index = [get_team_name(team, lang) for team in standings.index]
             standings_display = standings.copy()
             standings_display.index = display_index
-            st.dataframe(standings_display, width='stretch')
+            st.dataframe(standings_display, use_container_width=True)
 
         st.subheader(f"⚔️ {t('knockout_stage')}")
 
@@ -2037,7 +1652,7 @@ def show_model_analysis():
                            markers=True, title=t('accuracy_trend'),
                            line_shape='linear')
     fig_accuracy.update_traces(line=dict(width=3, color='#4CAF50'), marker=dict(size=10, color='#4CAF50'))
-    st.plotly_chart(fig_accuracy, width='stretch')
+    st.plotly_chart(fig_accuracy, use_container_width=True)
 
     col_n1, col_n2, col_n3, col_n4 = st.columns(4)
     with col_n1:
@@ -2067,7 +1682,7 @@ def show_model_analysis():
 
         fig = px.pie(weight_df, values='Weight', names='Factor', title=t('weight_distribution'),
                      color_discrete_sequence=['#4CAF50', '#FFB300', '#81C784', '#F57F17', '#A5D6A7'])
-        st.plotly_chart(fig, width='stretch')
+        st.plotly_chart(fig, use_container_width=True)
 
         st.subheader(f"📊 {t('three_board_params')}")
         params = engine.three_board.factors
@@ -2075,7 +1690,7 @@ def show_model_analysis():
             t('parameter'): list(params.keys()),
             t('value'): list(params.values())
         })
-        st.dataframe(params_df, width='stretch')
+        st.dataframe(params_df, use_container_width=True)
     else:
         premium_gate("Factor Weights & Model Parameters")
 
@@ -2103,7 +1718,7 @@ def show_model_analysis():
     fig = px.scatter_matrix(df, dimensions=[overall_col, attack_col, defense_col, pk_col],
                            title=t('correlation_matrix'),
                            color='Team')
-    st.plotly_chart(fig, width='stretch')
+    st.plotly_chart(fig, use_container_width=True)
 
     st.subheader(f"📈 {t('top_by_category')}")
     categories = [overall_col, attack_col, defense_col, pk_col]
@@ -2123,7 +1738,7 @@ def show_model_analysis():
             title=f"{t('top_5_teams')} - {cat}"
         )
         fig_heat.update_xaxes(side='bottom')
-        st.plotly_chart(fig_heat, width='stretch')
+        st.plotly_chart(fig_heat, use_container_width=True)
 
 def load_news_data():
     try:
@@ -2284,7 +1899,7 @@ def show_xfactor():
             title=t('xfactor_compare_title')
         )
 
-        st.plotly_chart(fig, width='stretch')
+        st.plotly_chart(fig, use_container_width=True)
 
     st.subheader(f"📋 {t('xfactor_title')}")
 
@@ -2294,84 +1909,7 @@ def show_xfactor():
         t('xfactor_goals'), t('xfactor_assists'), t('xfactor_form'), t('xfactor_fitness')
     ]
 
-    st.dataframe(display_df, width='stretch')
-
-def show_team_squads():
-    st.title(f"👥 {t('team_squads_title')}")
-
-    lang = st.session_state.language
-    teams = engine.get_all_teams()
-    if not teams:
-        st.error(f"❌ {t('no_teams_available')}")
-        return
-
-    team_display_names = {team: get_team_name(team, lang) for team in teams}
-    display_teams = [team_display_names[t] for t in teams]
-
-    selected_display = st.selectbox(t('team_squads_select'), display_teams)
-    selected_team = teams[display_teams.index(selected_display)]
-
-    players = engine.get_team_players(selected_team)
-    if not players:
-        st.warning(t('team_squads_no_players'))
-        return
-
-    avg_pace = sum(p['pace'] for p in players) / len(players)
-    avg_shooting = sum(p['shooting'] for p in players) / len(players)
-    avg_passing = sum(p['passing'] for p in players) / len(players)
-    avg_defending = sum(p['defending'] for p in players) / len(players)
-    avg_dribbling = sum(p['dribbling_skill'] for p in players) / len(players)
-    avg_fitness = sum(p['fitness_level'] for p in players) / len(players)
-
-    categories = ['Pace', 'Shooting', 'Passing', 'Defending', 'Dribbling', 'Fitness']
-
-    st.subheader(f"📊 {t('team_squads_avg_attributes')}")
-    fig_team = go.Figure(data=go.Scatterpolar(
-        r=[avg_pace, avg_shooting, avg_passing, avg_defending, avg_dribbling, avg_fitness],
-        theta=categories,
-        fill='toself',
-        fillcolor='rgba(76,175,80,0.3)',
-        line_color='#4CAF50',
-        name=get_team_name(selected_team, lang)
-    ))
-    fig_team.update_layout(
-        polar=dict(radialaxis=dict(visible=True, range=[0, 100])),
-        showlegend=True,
-        title=f"{get_team_name(selected_team, lang)} {t('team_squads_avg_attributes')}"
-    )
-    st.plotly_chart(fig_team, width='stretch')
-
-    st.subheader(f"⚽ {t('team_squads_player_abilities')}")
-
-    for p in players:
-        p['overall'] = (p['pace'] + p['shooting'] + p['passing'] + p['defending'] + p['dribbling_skill'] + p['fitness_level']) / 6
-    players_sorted = sorted(players, key=lambda x: x['overall'], reverse=True)
-
-    for i in range(0, len(players_sorted), 3):
-        row_players = players_sorted[i:i+3]
-        cols = st.columns(len(row_players))
-        for col, p in zip(cols, row_players):
-            with col:
-                player_name = get_player_name(p['name'], selected_team, lang)
-                badge = f" {t('team_squads_xfactor_badge')}" if p['is_xfactor'] else ""
-                st.markdown(f"**{player_name}**{badge}")
-                st.caption(f"{p['position']} | {t('team_squads_overall')}: {p['overall']:.0f}")
-
-                fig_player = go.Figure(data=go.Scatterpolar(
-                    r=[p['pace'], p['shooting'], p['passing'], p['defending'], p['dribbling_skill'], p['fitness_level']],
-                    theta=categories,
-                    fill='toself',
-                    fillcolor='rgba(76,175,80,0.3)',
-                    line_color='#4CAF50',
-                    name=player_name
-                ))
-                fig_player.update_layout(
-                    polar=dict(radialaxis=dict(visible=True, range=[0, 100])),
-                    showlegend=False,
-                    margin=dict(l=20, r=20, t=20, b=20),
-                    height=250
-                )
-                st.plotly_chart(fig_player, width='stretch')
+    st.dataframe(display_df, use_container_width=True)
 
 def show_team_profiles():
     """Team Profiles page with 4 sub-tabs: Squad, Coach & Strategy, Anime Cards, Venue Map"""
@@ -2428,7 +1966,7 @@ def show_team_profiles():
                 showlegend=True,
                 title=f"{get_team_name(selected_team, lang)} {t('team_squads_avg_attributes')}"
             )
-            st.plotly_chart(fig_team, width='stretch')
+            st.plotly_chart(fig_team, use_container_width=True)
 
             st.subheader(f"⚽ {t('team_squads_player_abilities')}")
             for p in players:
@@ -2459,7 +1997,7 @@ def show_team_profiles():
                             margin=dict(l=20, r=20, t=20, b=20),
                             height=250
                         )
-                        st.plotly_chart(fig_player, width='stretch')
+                        st.plotly_chart(fig_player, use_container_width=True)
 
     # ── Tab 2: Coach & Strategy ────────────────────────────────────────
     with tab_coach:
@@ -2594,150 +2132,10 @@ def show_team_profiles():
                         v2_name = VENUES[v2]["name"] if v2 in VENUES else v2
                         st.markdown(f"**{v1_name}** ↔ **{v2_name}**: {dist:,.0f} miles")
 
-def show_extreme_environment():
-    """V12 Extreme Environment + LightDarkBalance Analysis Page"""
-    is_cn = APP_VERSION == 'china'
-    
-    if not v11_engine:
-        st.error("V11 Engine not available" if not is_cn else "V11 引擎未載入")
-        return
-    
-    st.title("🌡️ " + ("極端環境 × 正暗平衡分析" if is_cn else "Extreme Environment × LightDarkBalance"))
-    st.caption("Formula V12 — 17+1 Dimensions × 3 EmoGlyphPlay Engines" if not is_cn else "Formula V12 — 17+1 維度 × 3 EmoGlyphPlay 引擎")
-    
-    from formula_v11_emoglyph import WC2026_GROUPS, ELO_RATINGS
-    from wc2026_venue_data import VENUES, get_wbgt_risk, get_travel_fatigue
-    from wc2026_recovery_data import get_team_recovery, get_fatigue_risk_level
-    
-    # Section 1: Venue Heat Map
-    st.markdown("### 🌡️ " + ("場館高溫風險" if is_cn else "Venue Heat Risk"))
-    
-    venue_data = []
-    for vid, v in VENUES.items():
-        risk = get_wbgt_risk(vid, "afternoon")
-        venue_data.append({
-            "Venue": v["name"], "City": v["city"], "Country": v["country"],
-            "WBGT (°C)": v["wbgt_threshold"], "Risk": risk["risk_level"],
-            "Altitude (m)": v["altitude_meters"]
-        })
-    
-    df_venues = pd.DataFrame(venue_data)
-    risk_colors = {"low": "🟢", "medium": "🟡", "high": "🟠", "extreme": "🔴"}
-    df_venues["Risk"] = df_venues["Risk"].map(lambda x: risk_colors.get(x, "⚪") + " " + x.title())
-    st.dataframe(df_venues, use_container_width=True, hide_index=True)
-    
-    # Section 2: Team Recovery Status
-    st.markdown("### 💤 " + ("球隊恢復狀態" if is_cn else "Team Recovery Status"))
-    
-    all_teams = []
-    for teams in WC2026_GROUPS.values():
-        all_teams.extend(teams)
-    
-    recovery_data = []
-    for team in all_teams:
-        rec = get_team_recovery(team)
-        risk = get_fatigue_risk_level(team)
-        risk_icon = {"low": "🟢", "medium": "🟡", "high": "🟠", "extreme": "🔴"}.get(risk, "⚪")
-        recovery_data.append({
-            "Team": team, "League": rec["primary_league"],
-            "Days Rest": rec["days_rest_before_wc"],
-            "CL Players": rec["cl_final_players"],
-            "Recovery": f"{rec['recovery_coefficient']:.2f}",
-            "Risk": f"{risk_icon} {risk.title()}"
-        })
-    
-    df_recovery = pd.DataFrame(recovery_data)
-    st.dataframe(df_recovery, use_container_width=True, hide_index=True)
-    
-    # Section 3: Match Prediction with LightDarkBalance
-    st.markdown("### ⚖️ " + ("正暗平衡預測" if is_cn else "LightDarkBalance Prediction"))
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        team_a = st.selectbox("Team A" if not is_cn else "球隊 A", all_teams, index=0, key="v11_team_a")
-    with col2:
-        team_b = st.selectbox("Team B" if not is_cn else "球隊 B", all_teams, index=5, key="v11_team_b")
-    
-    col_v, col_t = st.columns(2)
-    with col_v:
-        venue_id = st.selectbox("Venue" if not is_cn else "場館", list(VENUES.keys()), 
-                                format_func=lambda x: VENUES[x]["name"], key="v11_venue")
-    with col_t:
-        match_time = st.selectbox("Time" if not is_cn else "時間", 
-                                  ["morning", "afternoon", "evening"], index=1, key="v11_time")
-    
-    stage = st.selectbox("Stage" if not is_cn else "階段",
-                         ["group", "r32", "r16", "qf", "sf", "final"], index=1, key="v11_stage")
-    
-    if st.button("🔮 " + ("預測" if is_cn else "Predict"), key="v11_predict_btn"):
-        ctx = {"venue_id": venue_id, "match_time": match_time, "stage": stage, "match_number": 4}
-        result = v11_engine.predict_match(team_a, team_b, ctx)
-        
-        # Win probabilities
-        st.markdown("#### " + ("勝率預測" if is_cn else "Win Probability"))
-        prob_col1, prob_col2, prob_col3 = st.columns(3)
-        with prob_col1:
-            st.metric(team_a, f"{result['prob_a_win']:.1%}")
-        with prob_col2:
-            st.metric("Draw" if not is_cn else "平局", f"{result['prob_draw']:.1%}")
-        with prob_col3:
-            st.metric(team_b, f"{result['prob_b_win']:.1%}")
-        
-        # LightDarkBalance
-        st.markdown("#### ⚖️ LightDarkBalance")
-        ldb_col1, ldb_col2 = st.columns(2)
-        with ldb_col1:
-            ldb_a = result["ldb_a"]
-            confidence_icon = {"high": "🟢", "medium": "🟡", "low": "🔴"}.get(ldb_a["confidence"], "⚪")
-            st.markdown(f"**{team_a}**")
-            st.markdown(f"- LDB Score: {ldb_a['ldb']:.3f}")
-            st.markdown(f"- Light: {ldb_a['light']:.3f} | Dark: {ldb_a['dark']:.3f}")
-            st.markdown(f"- Confidence: {confidence_icon} {ldb_a['confidence']}")
-        with ldb_col2:
-            ldb_b = result["ldb_b"]
-            confidence_icon = {"high": "🟢", "medium": "🟡", "low": "🔴"}.get(ldb_b["confidence"], "⚪")
-            st.markdown(f"**{team_b}**")
-            st.markdown(f"- LDB Score: {ldb_b['ldb']:.3f}")
-            st.markdown(f"- Light: {ldb_b['light']:.3f} | Dark: {ldb_b['dark']:.3f}")
-            st.markdown(f"- Confidence: {confidence_icon} {ldb_b['confidence']}")
-        
-        if result["upset_alert"]:
-            st.warning("⚠️ " + ("冷門警報！此場比賽可能出現意外結果" if is_cn else "Upset Alert! This match may see an unexpected result"))
-        
-        # SunTzu Strategy
-        st.markdown("#### 🏛️ SunTzu " + ("策略分析" if is_cn else "Strategy"))
-        st_col1, st_col2 = st.columns(2)
-        with st_col1:
-            sz_a = result["suntzu_a"]
-            st.markdown(f"**{team_a}**: {sz_a['suntzu']:.3f}")
-            st.markdown(f"道(Purpose): {sz_a['dao']:.2f} | 天(Weather): {sz_a['tian']:.2f}")
-            st.markdown(f"地(Terrain): {sz_a['di']:.2f} | 將(Commander): {sz_a['jiang']:.2f}")
-            st.markdown(f"法(Method): {sz_a['fa']:.2f}")
-        with st_col2:
-            sz_b = result["suntzu_b"]
-            st.markdown(f"**{team_b}**: {sz_b['suntzu']:.3f}")
-            st.markdown(f"道(Purpose): {sz_b['dao']:.2f} | 天(Weather): {sz_b['tian']:.2f}")
-            st.markdown(f"地(Terrain): {sz_b['di']:.2f} | 將(Commander): {sz_b['jiang']:.2f}")
-            st.markdown(f"法(Method): {sz_b['fa']:.2f}")
-        
-        # Dimension Scores
-        st.markdown("#### 📊 " + ("17維度評分" if is_cn else "17 Dimension Scores"))
-        dim_data = []
-        for dim in result["scores_a"]:
-            dim_data.append({
-                "Dimension": dim,
-                team_a: result["scores_a"][dim],
-                team_b: result["scores_b"].get(dim, 0),
-                "Gap": result["scores_a"][dim] - result["scores_b"].get(dim, 0),
-                "Weight": v11_engine.weights.get(dim, 0)
-            })
-        df_dims = pd.DataFrame(dim_data)
-        st.dataframe(df_dims.style.format({team_a: "{:.3f}", team_b: "{:.3f}", "Gap": "{:+.3f}", "Weight": "{:.0%}"}),
-                     use_container_width=True, hide_index=True)
-
 def show_team_path_strategy():
     """Team Path Strategy page — per-team path analysis with social media export"""
-    is_cn = APP_VERSION == 'china'
+    lang = init_language()
+    is_cn = lang in ['zh_hant', 'zh_hans']
 
     if not _PATH_GEN_AVAILABLE:
         st.error("Team Path Generator not available" if not is_cn else "球隊路徑生成器未載入")
@@ -2772,8 +2170,8 @@ def show_team_path_strategy():
     # Language for social media
     sm_lang = st.selectbox(
         "Social Media Language" if not is_cn else "社交媒體語言",
-        ["en", "zh_cn", "zh_tw"],
-        format_func=lambda x: {"en": "English", "zh_cn": "簡體中文", "zh_tw": "繁體中文"}[x],
+        ["en", "zh_hans", "zh_hant"],
+        format_func=lambda x: {"en": "English", "zh_hans": "簡體中文", "zh_hant": "繁體中文"}[x],
         key="path_sm_lang"
     )
 
@@ -2894,7 +2292,8 @@ def show_team_path_strategy():
 
 def show_group_combinations():
     """Group Combinations page — all 16 result patterns, 3rd-place projection, convergence"""
-    is_cn = APP_VERSION == 'china'
+    lang = init_language()
+    is_cn = lang in ['zh_hant', 'zh_hans']
 
     st.title("🧩 " + ("小組組合分析" if is_cn else "Group Stage Combinations"))
     st.caption("Formula V12 — 48 Teams × 16 Result Patterns × 3rd-Place Advancement × 10K Monte Carlo")
@@ -2938,7 +2337,7 @@ def show_group_combinations():
                 combos = combo.generate_team_combinations(selected_team)
                 six_pts = combo.detect_six_points_after_two(selected_team)
                 must_win = combo.detect_must_win_match3(selected_team)
-                rec = combo.project_strategic_recommendation(selected_team, 'zh_tw' if is_cn else 'en')
+                rec = combo.project_strategic_recommendation(selected_team, ('zh_hant' if lang == 'zh_hant' else 'zh_hans') if is_cn else 'en')
 
             # Most likely patterns
             st.markdown("### 📋 " + ("結果模式概率" if is_cn else "Result Pattern Probabilities"))
@@ -2970,7 +2369,7 @@ def show_group_combinations():
                 st.success(f"✅ {six_pts['probability']:.1%} " + ("概率可在前2場獲6分" if is_cn else "chance of 6 points after 2 matches"))
             else:
                 st.warning(f"⚠️ {six_pts['probability']:.1%} " + ("概率可在前2場獲6分" if is_cn else "chance of 6 points after 2 matches"))
-            st.caption(six_pts.get('implication', ''))
+            st.caption(six_pts.get('strategic_implication', ''))
 
             # Must-win match 3
             st.markdown("### ⚡ " + ("必勝第三場" if is_cn else "Must-Win Match 3"))
@@ -2985,7 +2384,7 @@ def show_group_combinations():
 
             # Strategic recommendation
             st.markdown("### 🧠 " + ("戰略建議" if is_cn else "Strategic Recommendation"))
-            st.info(rec.get('recommendation', ''))
+            st.info(rec)
 
     with tab2:
         st.markdown("### 🥉 " + ("第三名晉級預測" if is_cn else "3rd-Place Advancement Projection"))
@@ -2997,8 +2396,8 @@ def show_group_combinations():
             st.markdown("#### " + ("晉級的8支第三名球隊" if is_cn else "Top 8 3rd-Place Teams Advancing"))
             for i, team_data in enumerate(third_place[:8], 1):
                 team_name = team_data['team']
-                pts = team_data['points']
-                gd = team_data['goal_difference']
+                pts = team_data['expected_points']
+                gd = team_data['expected_gd']
                 style = TEAM_STYLE_CLASSIFICATION.get(team_name, "balanced")
                 style_icon = {"defensive_counter": "🛡️", "attacking_possession": "⚔️", "balanced": "⚖️"}.get(style, "⚖️")
 
@@ -3007,8 +2406,8 @@ def show_group_combinations():
             st.markdown("#### " + ("被淘汰的第三名球隊" if is_cn else "3rd-Place Teams Eliminated"))
             for team_data in third_place[8:]:
                 team_name = team_data['team']
-                pts = team_data['points']
-                gd = team_data['goal_difference']
+                pts = team_data['expected_points']
+                gd = team_data['expected_gd']
                 st.markdown(f"❌ {team_name} — {pts:.1f}pts, GD: {gd:+.1f}")
 
         # Per-team 3rd-place probability
@@ -3034,6 +2433,10 @@ def show_group_combinations():
 
             if tp_prob.get('r32_opponent'):
                 st.caption(("R32 對手" if is_cn else "R32 Opponent") + f": {tp_prob['r32_opponent']}")
+            else:
+                r32_info = combo.project_r32_opponent_for_third_place(tp_team)
+                if 'projected_opponent' in r32_info:
+                    st.caption(("R32 對手" if is_cn else "R32 Opponent") + f": {r32_info['r32_matchup']} (upset {r32_info['upset_probability']:.0%})")
 
     with tab3:
         st.markdown("### 🛡️ " + ("防守反擊 vs 進攻控球" if is_cn else "Defensive Counter vs Attacking Possession"))

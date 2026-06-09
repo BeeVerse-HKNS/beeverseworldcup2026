@@ -1,12 +1,15 @@
 import json
+import os
 import random
 from typing import Dict, List, Tuple, Optional
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from formula_v9_ultimate import FormulaV9
 
+_DEFAULT_PLAYER_DATA = os.path.join(os.path.dirname(__file__), 'data', 'wc2026_player_database.json')
+
 class TournamentModel:
-    def __init__(self, player_data_path: str):
+    def __init__(self, player_data_path: str = _DEFAULT_PLAYER_DATA):
         self.engine = FormulaV9(player_data_path)
         self.wc2026_groups = {
             'A': ['Mexico', 'South Africa', 'South Korea', 'Czech Republic'],
