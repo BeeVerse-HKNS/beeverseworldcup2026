@@ -978,9 +978,9 @@ def main():
     if 'user_jurisdiction' not in st.session_state:
         st.session_state.user_jurisdiction = 'other'
 
+    # Auto-register: no gate page, go straight to app
     if not st.session_state.registered:
-        show_engagement_gate()
-        return
+        st.session_state.registered = True
 
     apply_custom_css(lang, theme)
 
