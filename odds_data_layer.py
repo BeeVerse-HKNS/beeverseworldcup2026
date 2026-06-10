@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, asdict
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Dict, Optional
 import hashlib
 import math
 import os
@@ -19,6 +19,11 @@ try:
     import streamlit as st
 except ImportError:
     st = None  # type: ignore[assignment]
+
+try:
+    from formula_v11_emoglyph import WC2026_GROUPS as _WC2026_GROUPS
+except ImportError:
+    _WC2026_GROUPS: dict[str, list[str]] = {}
 
 
 _SIMULATED_ODDS = {
@@ -470,6 +475,68 @@ class OddsDataLayer:
         Returns dict with home_prob, draw_prob, away_prob.
         This is NEVER displayed on frontend."""
         return self.fetch_market_consensus(team_home, team_away)
+
+    def fetch_group_consensus(self, group_name: str) -> Dict[str, Dict[str, float]]:
+        cache_key = f"group_consensus_{group_name}"
+        now = time.time()
+        if cache_key in self._odds_cache:
+            cached_ts, cached_data = self._odds_cache[cache_key]
+            if now - cached_ts < self._cache_duration_seconds:
+                return cached_data
+
+        try:
+            from wc2026_market_consensus import MarketConsensus
+            mc = MarketConsensus()
+            result = mc.get_group_probabilities(group_name)
+        except Exception:
+            result = self._elo_group_probabilities(group_name)
+
+        self._odds_cache[cache_key] = (time.time(), result)
+        return result
+
+    def fetch_all_groups_consensus(self) -> Dict[str, Dict[str, Dict[str, float]]]:
+        if not _WC2026_GROUPS:
+            return {}
+        result: Dict[str, Dict[str, Dict[str, float]]] = {}
+        for group_name in _WC2026_GROUPS:
+            result[group_name] = self.fetch_group_consensus(group_name)
+        return result
+
+    def _elo_group_probabilities(self, group_name: str) -> Dict[str, Dict[str, float]]:
+        teams = _WC2026_GROUPS.get(group_name, [])
+        if not teams:
+            return {}
+
+        elos = {team: _ELO_RATINGS.get(team, 1800) for team in teams}
+        total_elo = sum(elos.values())
+
+        result: Dict[str, Dict[str, float]] = {}
+        for team in teams:
+            elo_i = elos[team]
+            first_prob = elo_i / total_elo if total_elo > 0 else 1.0 / len(teams)
+
+            remaining_elo = sum(elos[t] for t in teams if t != team)
+            second_prob = 0.0
+            if remaining_elo > 0:
+                for other in teams:
+                    if other == team:
+                        continue
+                    prob_other_first = elos[other] / total_elo if total_elo > 0 else 1.0 / len(teams)
+                    remaining_after_other = sum(elos[t] for t in teams if t != other)
+                    prob_team_second_given_other_first = elo_i / remaining_after_other if remaining_after_other > 0 else 0.0
+                    second_prob += prob_other_first * prob_team_second_given_other_first
+
+            margin = 1.08
+            first_odds = round(1.0 / first_prob * margin, 2) if first_prob > 0 else 999.0
+            second_odds = round(1.0 / second_prob * margin, 2) if second_prob > 0 else 999.0
+
+            result[team] = {
+                "1st_prob": round(first_prob, 4),
+                "2nd_prob": round(second_prob, 4),
+                "1st_odds": first_odds,
+                "2nd_odds": second_odds,
+            }
+        return result
 
     def to_frontend_dict(self, data: MarketConsensusData) -> dict:
         return {

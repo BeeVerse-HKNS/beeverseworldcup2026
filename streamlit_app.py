@@ -63,6 +63,19 @@ try:
     _VENUE_MAP_AVAILABLE = True
 except ImportError:
     _VENUE_MAP_AVAILABLE = False
+
+try:
+    from wc2026_market_consensus import MarketConsensus, TOURNAMENT_WINNER_ODDS, GROUP_CONSENSUS_BASELINE
+    _MARKET_CONSENSUS_AVAILABLE = True
+except ImportError:
+    _MARKET_CONSENSUS_AVAILABLE = False
+
+try:
+    from wc2026_portfolio_optimizer import PortfolioOptimizer, KellyCriterion, ROICalculator, ExplanationGenerator
+    _PORTFOLIO_OPTIMIZER_AVAILABLE = True
+except ImportError:
+    _PORTFOLIO_OPTIMIZER_AVAILABLE = False
+
 from languages import LANGUAGES, LANGUAGE_NAMES, get_text, get_language_name, get_available_languages, get_default_language
 from player_translations import get_player_name, get_team_name
 from user_registration_db import save_registration, get_registration_count
@@ -701,6 +714,7 @@ def main():
             t('team_profiles_page'),
             '🗺️ ' + ('球隊路徑策略' if is_cn else 'Team Path Strategy'),
             '🧩 ' + ('小組組合分析' if is_cn else 'Group Combinations'),
+            '💼 ' + ('投資組合' if is_cn else 'Investment Portfolio'),
         ]
         page = st.radio(t('navigation'), pages)
 
@@ -768,6 +782,8 @@ def main():
             show_team_path_strategy()
         elif page == '🧩 ' + ('小組組合分析' if is_cn else 'Group Combinations'):
             show_group_combinations()
+        elif page == '💼 ' + ('投資組合' if is_cn else 'Investment Portfolio'):
+            show_investment_portfolio()
     except Exception as e:
         st.error(f"❌ {t('page_error')}: {str(e)}")
         st.info(t('try_refresh'))
@@ -2290,6 +2306,301 @@ def show_team_path_strategy():
         # Formula Explanation (collapsible)
         with st.expander("📖 " + ("公式原理" if is_cn else "How It Works")):
             st.markdown(path_gen.explain_formula_human_readable(sm_lang))
+
+def show_investment_portfolio():
+    """Investment Portfolio page — group consensus, ROI recommendations, portfolio allocation"""
+    lang = init_language()
+    is_cn = lang in ['zh_hant', 'zh_hans']
+
+    st.title("💼 " + t('investment_portfolio_title'))
+
+    # Compliance disclaimer at top
+    st.markdown(f"""
+    <div style="background:rgba(255,179,0,0.15);border:1px solid #FFB300;border-radius:8px;padding:12px 16px;margin-bottom:16px;">
+        <p style="margin:0;color:#FFB300;font-size:0.9rem;">⚠️ {t('investment_disclaimer')}</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    if not _MARKET_CONSENSUS_AVAILABLE or not _PORTFOLIO_OPTIMIZER_AVAILABLE:
+        st.error(t('module_not_available') if not is_cn else "模組未載入")
+        return
+
+    from wc2026_market_consensus import MarketConsensus, GROUP_CONSENSUS_BASELINE
+    from wc2026_portfolio_optimizer import PortfolioOptimizer, ExplanationGenerator
+    from formula_v11_emoglyph import WC2026_GROUPS, ELO_RATINGS
+
+    @st.cache_resource
+    def load_market_consensus():
+        return MarketConsensus()
+
+    @st.cache_resource
+    def load_optimizer():
+        return PortfolioOptimizer()
+
+    mc = load_market_consensus()
+    optimizer = load_optimizer()
+
+    # Budget input
+    budget = st.number_input(
+        t('budget_label'),
+        min_value=100,
+        max_value=100000,
+        value=1000,
+        step=100,
+        key="portfolio_budget"
+    )
+
+    # Get all group consensus data
+    all_consensus = mc.fetch_all_groups_consensus()
+
+    # Build positions list for optimizer
+    positions = []
+    for group_name, teams in WC2026_GROUPS.items():
+        group_data = all_consensus.get(group_name, {})
+        for team in teams:
+            team_data = group_data.get(team, {})
+            if not team_data:
+                continue
+
+            # 1st place position
+            market_odds_1st = team_data.get('1st_odds', 50.0)
+            market_implied_1st = team_data.get('1st_prob', 0.02)
+
+            # Model probability from V12 engine
+            if _V11_AVAILABLE and engine:
+                try:
+                    # Use Elo-based model probability as approximation
+                    elo = ELO_RATINGS.get(team, 1700)
+                    # Scale Elo to probability relative to group
+                    group_elos = [ELO_RATINGS.get(t, 1700) for t in teams]
+                    total_elo = sum(10 ** (e / 400) for e in group_elos)
+                    model_prob_1st = (10 ** (elo / 400)) / total_elo
+                except Exception:
+                    model_prob_1st = market_implied_1st
+            else:
+                model_prob_1st = market_implied_1st
+
+            positions.append({
+                'group': group_name,
+                'position': '1st',
+                'team': team,
+                'market_odds': market_odds_1st,
+                'market_implied_prob': market_implied_1st,
+                'model_prob': model_prob_1st,
+            })
+
+            # 2nd place position
+            market_odds_2nd = team_data.get('2nd_odds', 50.0)
+            market_implied_2nd = team_data.get('2nd_prob', 0.02)
+
+            # Model probability for 2nd (conditional)
+            if _V11_AVAILABLE and engine:
+                try:
+                    elo = ELO_RATINGS.get(team, 1700)
+                    group_elos = [ELO_RATINGS.get(t, 1700) for t in teams]
+                    total_elo = sum(10 ** (e / 400) for e in group_elos)
+                    rel_strength = (10 ** (elo / 400)) / total_elo
+                    # 2nd place is roughly: rel_strength * (1 - rel_strength) * adjustment
+                    model_prob_2nd = rel_strength * (1 - rel_strength) * 1.5
+                    model_prob_2nd = min(model_prob_2nd, 0.50)
+                except Exception:
+                    model_prob_2nd = market_implied_2nd
+            else:
+                model_prob_2nd = market_implied_2nd
+
+            positions.append({
+                'group': group_name,
+                'position': '2nd',
+                'team': team,
+                'market_odds': market_odds_2nd,
+                'market_implied_prob': market_implied_2nd,
+                'model_prob': model_prob_2nd,
+            })
+
+    # Run optimization
+    result = optimizer.optimize(budget, positions)
+
+    # Last updated timestamp
+    st.caption(f"🕐 {t('last_updated')}: {mc.get_last_updated()}")
+
+    # Tabs
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "📊 " + t('group_overview_section'),
+        "💰 " + t('roi_recommendations_section'),
+        "🥧 " + t('portfolio_allocation_section'),
+        "📈 " + t('risk_reward_section'),
+    ])
+
+    # =========================================================================
+    # TAB 1: Group Overview
+    # =========================================================================
+    with tab1:
+        st.header(t('group_overview_section'))
+
+        for group_name, teams in WC2026_GROUPS.items():
+            group_data = all_consensus.get(group_name, {})
+            st.markdown(f"### {t('col_group')} {group_name}")
+
+            rows = []
+            for team in teams:
+                td = group_data.get(team, {})
+                prob_1st = td.get('1st_prob', 0)
+                prob_2nd = td.get('2nd_prob', 0)
+
+                # Color coding
+                if prob_1st >= 0.50:
+                    color = "🟢"
+                elif prob_1st >= 0.25:
+                    color = "🟡"
+                else:
+                    color = "🔴"
+
+                rows.append({
+                    '': color,
+                    t('col_team'): team,
+                    t('col_1st'): f"{prob_1st:.1%}",
+                    t('col_2nd'): f"{prob_2nd:.1%}",
+                    t('statistical_consensus') + ' (1st)': f"{td.get('1st_odds', 0):.2f}",
+                    t('statistical_consensus') + ' (2nd)': f"{td.get('2nd_odds', 0):.2f}",
+                })
+
+            st.dataframe(rows, use_container_width=True, hide_index=True)
+            st.markdown("---")
+
+    # =========================================================================
+    # TAB 2: ROI Recommendations
+    # =========================================================================
+    with tab2:
+        st.header(t('roi_recommendations_section'))
+
+        if not result.top_picks:
+            st.info(t('no_edge_found'))
+        else:
+            # Top picks
+            st.markdown(f"### ⭐ {t('top_picks')}")
+            for i, pick in enumerate(result.top_picks, 1):
+                exp = pick.explanation.get(lang, pick.explanation.get('en', ''))
+                st.markdown(f"**{i}. {pick.team}** — {t('col_group')} {pick.group} {pick.position}")
+                st.markdown(f"   {t('col_edge')}: {pick.edge_pct:+.1f}% | {t('col_roi')}: {pick.roi_pct:+.1f}% | {t('col_allocation')}: HKD {pick.allocation_hkd:.0f}")
+                st.caption(f"💡 {exp}")
+
+            st.markdown("---")
+
+            # Full table
+            st.markdown(f"### 📋 {t('value_positions')}")
+            table_rows = []
+            for pos in result.positions:
+                if pos.edge_pct > 0:
+                    table_rows.append({
+                        t('col_group'): pos.group,
+                        t('col_position'): pos.position,
+                        t('col_team'): pos.team,
+                        t('col_consensus'): f"{pos.market_implied_prob:.1%}",
+                        t('col_model'): f"{pos.model_prob:.1%}",
+                        t('col_edge'): f"{pos.edge_pct:+.1f}%",
+                        t('col_roi'): f"{pos.roi_pct:+.1f}%",
+                        t('col_allocation'): f"HKD {pos.allocation_hkd:.0f}",
+                    })
+
+            if table_rows:
+                st.dataframe(table_rows, use_container_width=True, hide_index=True)
+            else:
+                st.info(t('no_edge_found'))
+
+    # =========================================================================
+    # TAB 3: Portfolio Allocation
+    # =========================================================================
+    with tab3:
+        st.header(t('portfolio_allocation_section'))
+
+        # Summary metrics
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric(t('budget_label'), f"HKD {budget:,.0f}")
+        with col2:
+            st.metric(t('total_projected_return'), f"HKD {result.total_expected_return:,.0f}")
+        with col3:
+            st.metric(t('expected_portfolio_roi'), f"{result.portfolio_roi:+.1f}%")
+
+        st.metric(t('risk_level'), result.risk_level)
+
+        # Pie chart
+        allocated = [(p.team, p.allocation_hkd) for p in result.positions if p.allocation_hkd > 0]
+        if allocated:
+            import plotly.express as px
+            labels = [a[0] for a in allocated]
+            values = [a[1] for a in allocated]
+            unallocated = budget - sum(values)
+            if unallocated > 0:
+                labels.append("Unallocated" if not is_cn else ("未配置" if lang == 'zh_hans' else "未配置"))
+                values.append(unallocated)
+
+            fig = px.pie(
+                values=values, names=labels,
+                title=t('portfolio_allocation_section'),
+                color_discrete_sequence=px.colors.sequential.Greens
+            )
+            fig.update_layout(
+                paper_bgcolor='#1E1E1E',
+                font_color='#ECEFF1',
+                showlegend=True
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info(t('no_edge_found'))
+
+    # =========================================================================
+    # TAB 4: Risk / Reward
+    # =========================================================================
+    with tab4:
+        st.header(t('risk_reward_section'))
+
+        # Scatter plot
+        positive_positions = [p for p in result.positions if p.edge_pct > 0]
+        if positive_positions:
+            import plotly.graph_objects as go
+            fig = go.Figure()
+
+            x_vals = [p.risk_score for p in positive_positions]
+            y_vals = [p.roi_pct for p in positive_positions]
+            labels = [f"{p.team} ({p.group} {p.position})" for p in positive_positions]
+            sizes = [max(10, p.allocation_hkd / budget * 200) for p in positive_positions]
+
+            fig.add_trace(go.Scatter(
+                x=x_vals,
+                y=y_vals,
+                mode='markers+text',
+                text=labels,
+                textposition='top center',
+                marker=dict(
+                    size=sizes,
+                    color=[p.edge_pct for p in positive_positions],
+                    colorscale='RdYlGn',
+                    showscale=True,
+                    colorbar=dict(title=t('col_edge')),
+                ),
+            ))
+
+            fig.update_layout(
+                xaxis_title="Risk Score",
+                yaxis_title=f"{t('col_roi')} (%)",
+                paper_bgcolor='#1E1E1E',
+                plot_bgcolor='#121212',
+                font_color='#ECEFF1',
+                height=500,
+            )
+
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info(t('no_edge_found'))
+
+    # Bottom disclaimer
+    st.markdown("---")
+    st.markdown(f"""
+    <div style="background:rgba(255,179,0,0.1);border:1px solid #FFB300;border-radius:8px;padding:10px 14px;">
+        <p style="margin:0;color:#FFB300;font-size:0.85rem;">⚠️ {t('investment_disclaimer')} {t('model_estimates_note')}</p>
+    </div>
+    """, unsafe_allow_html=True)
 
 def show_group_combinations():
     """Group Combinations page — all 16 result patterns, 3rd-place projection, convergence"""
